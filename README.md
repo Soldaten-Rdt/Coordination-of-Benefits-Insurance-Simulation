@@ -72,7 +72,7 @@ Ketiga aplikasi berkomunikasi secara asinkron/sinkron melalui **HTTP REST & Webh
 
 ### Prasyarat
 * [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/) terpasang di sistem Anda.
-* Port `3001-3003`, `5432-5434`, dan `8081-8083` dalam keadaan kosong.
+* Port `5432-5434` dan `8081-8083` dalam keadaan kosong. Frontend pada port `3001-3003` belum tersedia di repository ini.
 
 ### Langkah Instalasi
 
@@ -99,16 +99,27 @@ Ketiga aplikasi berkomunikasi secara asinkron/sinkron melalui **HTTP REST & Webh
    ```
    Saat pertama kali dijalankan, masing-masing service Golang akan mengeksekusi **migrasi database PostgreSQL** dan **seeder data demo** secara otomatis.
 
-5. **Akses Aplikasi:**
-   * **Hospital Workspace:** [http://localhost:3001](http://localhost:3001)
-   * **Simulator BPJS:** [http://localhost:3002](http://localhost:3002)
-   * **Asuransi Swasta:** [http://localhost:3003](http://localhost:3003)
+5. **Periksa API:**
+   Backend saat ini menyediakan API, belum menyediakan UI:
+   * **Hospital API:** [http://localhost:8081/health](http://localhost:8081/health)
+   * **Simulator BPJS API:** [http://localhost:8082/health](http://localhost:8082/health)
+   * **Asuransi Swasta API:** [http://localhost:8083/health](http://localhost:8083/health)
+
+### Status Implementasi Backend
+
+Backend Dev A menggunakan satu binary Go yang dijalankan sebagai tiga service terpisah (`hospital`, `bpjs`, `insurer`) dengan database PostgreSQL masing-masing. Implementasi saat ini mencakup fondasi service, migrasi dan demo data, serta endpoint Hospital untuk autentikasi/config, pasien, kasus, dokumen, split bill, invoice, dan pembayaran.
+
+Endpoint review klaim BPJS/Asuransi, pengajuan dan callback antar-service, dashboard operasional, serta integrasi end-to-end masih menjadi pekerjaan Dev B dan Fase 4 bersama. Frontend Next.js belum tersedia di repo ini; compose saat ini menyalakan tiga API dan database.
+
+Untuk konfigurasi lokal, salin `.env.example` menjadi `.env`, lalu ganti `JWT_SECRET` dan `KAPJ_SERVICE_KEY` dengan nilai acak minimal 32 karakter sebelum menjalankan Compose.
+
+Dokumentasi implementasi komprehensif: [Implementasi Backend Dev A (Markdown)](./Docs/Backend/implementasi-backend-dev-a.md). [Infografik PNG](./Docs/Backend/implementasi-backend-dev-a.png) tersedia sebagai ringkasan visual.
 
 ---
 
 ## 🔐 Akun Demo (Preset Credentials)
 
-Gunakan akun preset berikut (atau tombol **Terapkan / Isi Preset** pada halaman Login masing-masing portal) untuk menguji alur simulasi *end-to-end*:
+Kredensial berikut ditanam sebagai akun demo untuk menguji endpoint login API. UI login dan tombol preset frontend belum tersedia:
 
 | Portal Aplikasi | Nama & Jabatan | Email | Kata Sandi |
 | :--- | :--- | :--- | :--- |
@@ -120,12 +131,7 @@ Gunakan akun preset berikut (atau tombol **Terapkan / Isi Preset** pada halaman 
 
 ## 📖 Dokumentasi API & Pengujian Lokal
 
-Seluruh kontrak API dan koleksi pengujian disimpan **100% secara lokal** di dalam repositori ini menggunakan standar **OpenAPI 3.0** (tanpa ketergantungan layanan cloud pihak ketiga):
-
-* **Swagger UI — Hospital API:** `http://localhost:8081/swagger/index.html`
-* **Swagger UI — BPJS API:** `http://localhost:8082/swagger/index.html`
-* **Swagger UI — Asuransi Swasta API:** `http://localhost:8083/swagger/index.html`
-* **Local HTTP Collection:** Lihat direktori `docs/http-client/` untuk koleksi file `.http` (kompatibel dengan **VS Code REST Client**, **JetBrains HTTP Client**, atau **Bruno**).
+Dokumen [Implementasi Backend Dev A](./Docs/Backend/implementasi-backend-dev-a.md) mencantumkan endpoint yang tersedia. Spesifikasi OpenAPI/Swagger, koleksi `.http`, dan frontend handoff merupakan tiket `T-402` Fase 4 yang menunggu integrasi bersama Dev B; artefak tersebut belum tersedia.
 
 ---
 
@@ -133,24 +139,19 @@ Seluruh kontrak API dan koleksi pengujian disimpan **100% secara lokal** di dala
 
 ```text
 kapj-flow-simulator/
-├── apps/
-│   ├── hospital-web/          # Next.js + TypeScript (Portal Rumah Sakit)
-│   ├── bpjs-web/              # Next.js + TypeScript (Portal Verifikator BPJS)
-│   └── insurer-web/           # Next.js + TypeScript (Portal Asuransi Swasta)
-├── services/
-│   ├── hospital-service/      # Golang API + Migrasi & Seeder hospital_db
-│   ├── bpjs-service/          # Golang API + Migrasi & Seeder bpjs_db
-│   └── insurer-service/       # Golang API + Migrasi & Seeder insurer_db
+├── cmd/api/                   # Binary Go untuk ketiga service
+├── internal/
+│   ├── database/              # PostgreSQL pool dan migrasi per service
+│   ├── seed/                  # Seeder akun dan data demo
+│   └── server/                # Router dan handler HTTP
 ├── pkg/
 │   ├── contracts/             # Shared FHIR-inspired JSON DTOs
-│   ├── middleware/            # JWT Auth & Inter-Service Webhook Auth
-│   ├── httpclient/            # Webhook Dispatcher antar-container
-│   └── response/              # Standard JSON Response & Error Wrapper
-├── docs/
-│   ├── openapi/               # Spesifikasi OpenAPI 3.0 YAML
-│   ├── http-client/           # Koleksi pengujian lokal (.http / Bruno)
-│   └── FRONTEND_HANDOFF.md    # Panduan integrasi API untuk Frontend
+│   ├── middleware/            # JWT dan autentikasi service
+│   ├── httpclient/            # HTTP client webhook antar-service
+│   └── response/              # Standard JSON response dan error
+├── internal/database/migrations/
 ├── docker-compose.yml
+├── Dockerfile
 └── .env.example
 ```
 

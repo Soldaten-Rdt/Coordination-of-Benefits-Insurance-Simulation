@@ -978,3 +978,16 @@ Pembagian dirancang berbasis **Domain & Service Ownership** sehingga kedua devel
    * `docker compose up --build` berjalan bersih dari nol (`fresh volume`).
    * Seluruh endpoint pada 15 rancangan layar Frontend tersedia, merespons sesuai format standar, dan memiliki data seed yang langsung tampil di UI.
    * Spesifikasi `openapi.yaml` (Swagger UI) dan file `.http` lokal ter-update sesuai implementasi akhir.
+
+---
+
+# 🧩 Catatan Implementasi Dev A (22 November 2026)
+
+Dokumentasi lengkap: [Implementasi Backend Dev A (Markdown)](./implementasi-backend-dev-a.md). [Infografik PNG](./implementasi-backend-dev-a.png) adalah ringkasan visual tambahan.
+
+Implementasi backend Dev A saat ini tersedia pada `cmd/api`, `internal/`, dan `pkg/`. Tiga container API menggunakan binary Go yang sama dengan konfigurasi service berbeda, serta tetap terhubung ke tiga database PostgreSQL yang terisolasi.
+
+* **Sudah diimplementasikan:** fondasi Docker/migrasi/seeder/kontrak dan middleware; Hospital auth/config, direktori dan registrasi pasien, profil/kepesertaan, kasus, upload dan checklist dokumen, split-bill, invoice, pembayaran, serta ringkasan pembayaran/rekonsiliasi (`T-001`–`T-004`, `T-101`–`T-108`, `T-301`–`T-303`).
+* **Masih menunggu Dev B:** endpoint adjudikasi BPJS/Asuransi, pengajuan/callback klaim antar-service, notifikasi dan dashboard operasional. Binary BPJS/Asuransi saat ini memiliki health check, login demo, dan profil pengguna agar fondasi service dapat diuji.
+* **Fase 4 sengaja belum dimulai:** `T-401` dan `T-402` dikerjakan bersama setelah pekerjaan Dev B tersedia. Swagger/OpenAPI, koleksi `.http`, serta pengujian E2E lintas penjamin belum menjadi bagian implementasi ini.
+* **Batas simulasi:** verifikasi BPJS adalah dummy lokal; pengiriman invoice pasien hanya mencatat aktivitas, bukan mengirim pesan keluar.

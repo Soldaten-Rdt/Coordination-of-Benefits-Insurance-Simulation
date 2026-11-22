@@ -1,0 +1,107 @@
+services:
+  hospital-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kapj}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kapj_local_dev}
+      POSTGRES_DB: hospital_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - hospital_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kapj} -d hospital_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [kapj-network]
+
+  bpjs-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kapj}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kapj_local_dev}
+      POSTGRES_DB: bpjs_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - bpjs_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kapj} -d bpjs_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [kapj-network]
+
+  insurer-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kapj}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kapj_local_dev}
+      POSTGRES_DB: insurer_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - insurer_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kapj} -d insurer_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [kapj-network]
+
+  hospital-api:
+    build: .
+    environment:
+      SERVICE: hospital
+      PORT: "8081"
+      DATABASE_URL: ${HOSPITAL_DB_URL:-postgres://kapj:kapj_local_dev@hospital-db:5432/hospital_db?sslmode=disable}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      KAPJ_SERVICE_KEY: ${KAPJ_SERVICE_KEY:?Set KAPJ_SERVICE_KEY in .env}
+      UPLOAD_DIR: /app/uploads
+      BPJS_URL: http://bpjs-api:8082
+      INSURER_URL: http://insurer-api:8083
+    ports: ["8081:8081"]
+    volumes: [hospital_uploads:/app/uploads]
+    depends_on:
+      hospital-db:
+        condition: service_healthy
+    networks: [kapj-network]
+
+  bpjs-api:
+    build: .
+    environment:
+      SERVICE: bpjs
+      PORT: "8082"
+      DATABASE_URL: ${BPJS_DB_URL:-postgres://kapj:kapj_local_dev@bpjs-db:5432/bpjs_db?sslmode=disable}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      KAPJ_SERVICE_KEY: ${KAPJ_SERVICE_KEY:?Set KAPJ_SERVICE_KEY in .env}
+    ports: ["8082:8082"]
+    depends_on:
+      bpjs-db:
+        condition: service_healthy
+    networks: [kapj-network]
+
+  insurer-api:
+    build: .
+    environment:
+      SERVICE: insurer
+      PORT: "8083"
+      DATABASE_URL: ${INSURER_DB_URL:-postgres://kapj:kapj_local_dev@insurer-db:5432/insurer_db?sslmode=disable}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      KAPJ_SERVICE_KEY: ${KAPJ_SERVICE_KEY:?Set KAPJ_SERVICE_KEY in .env}
+    ports: ["8083:8083"]
+    depends_on:
+      insurer-db:
+        condition: service_healthy
+    networks: [kapj-network]
+
+networks:
+  kapj-network:
+    driver: bridge
+
+volumes:
+  hospital_data:
+  bpjs_data:
+  insurer_data:
+  hospital_uploads:
