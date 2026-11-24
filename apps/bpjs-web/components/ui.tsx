@@ -7,29 +7,30 @@ export function StatusBadge({ status }: { status: ClaimStatus }) {
   const colors: Record<string, string> = {
     SUBMITTED: "bg-sky-50 text-sky-700 ring-sky-200",
     IN_REVIEW: "bg-amber-50 text-amber-700 ring-amber-200",
-    REVISION_REQUIRED: "bg-orange-50 text-orange-700 ring-orange-200",
+    REVISION_REQUIRED: "bg-rose-50 text-rose-700 ring-rose-200",
     APPROVED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-    REJECTED: "bg-rose-50 text-rose-700 ring-rose-200",
+    REJECTED: "bg-slate-100 text-slate-600 ring-slate-200",
   };
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-inset ${colors[status] || "bg-slate-50 text-slate-600 ring-slate-200"}`}>{statusLabel(status)}</span>;
+  return <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[8px] font-bold ring-1 ring-inset ${colors[status] || "bg-slate-50 text-slate-600 ring-slate-200"}`}>{statusLabel(status)}</span>;
 }
 
 export function ClaimTable({ claims, empty = "Belum ada klaim pada antrean ini." }: { claims: { subclaim_code: string; case_number: string; patient_name: string; hospital_name: string; status: ClaimStatus; requested_amount: number; sla_deadline?: string }[]; empty?: string }) {
-  if (!claims.length) return <div className="px-6 py-14 text-center text-sm text-slate-500">{empty}</div>;
-  return <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm">
-    <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500"><tr>
-      <th className="px-5 py-3">Klaim / pasien</th><th className="px-5 py-3">Fasilitas kesehatan</th><th className="px-5 py-3">Pengajuan</th><th className="px-5 py-3">SLA</th><th className="px-5 py-3">Status</th><th className="px-5 py-3" />
+  if (!claims.length) return <div className="px-5 py-10 text-center text-[10px] text-slate-500">{empty}</div>;
+  return <div className="overflow-x-auto"><table className="w-full min-w-[690px] text-left">
+    <thead className="bg-[#fafbfd] text-[8px] font-bold uppercase tracking-wide text-slate-500"><tr>
+      <th className="px-3 py-2.5">ID subklaim</th><th className="px-3 py-2.5">Kasus & pasien</th><th className="px-3 py-2.5">Faskes / RS</th><th className="px-3 py-2.5">Nominal diajukan</th><th className="px-3 py-2.5">SLA / status</th><th className="px-3 py-2.5" />
     </tr></thead>
-    <tbody className="divide-y divide-slate-100">{claims.map((claim) => <tr key={claim.subclaim_code} className="transition hover:bg-slate-50/80">
-      <td className="px-5 py-4"><div className="font-bold text-slate-800">{claim.patient_name || "Nama pasien tidak tersedia"}</div><div className="mt-1 text-xs text-slate-500">{claim.subclaim_code} · {claim.case_number}</div></td>
-      <td className="px-5 py-4 text-slate-600">{claim.hospital_name || "—"}</td><td className="px-5 py-4 font-semibold text-slate-700">{rupiah(claim.requested_amount)}</td>
-      <td className="px-5 py-4 text-xs text-slate-500">{claim.sla_deadline ? <span className="inline-flex items-center gap-1"><Clock3 size={13} />{dateTime(claim.sla_deadline)}</span> : "—"}</td>
-      <td className="px-5 py-4"><StatusBadge status={claim.status} /></td>
-      <td className="px-5 py-4 text-right"><Link aria-label={`Buka klaim ${claim.subclaim_code}`} className="inline-flex items-center gap-1 font-bold text-teal-700 hover:text-teal-900" href={`/claims/${encodeURIComponent(claim.subclaim_code)}`}>Buka <ArrowRight size={14} /></Link></td>
+    <tbody className="divide-y divide-[#eff2f6]">{claims.map((claim) => <tr key={claim.subclaim_code} className="hover:bg-[#f8faff]">
+      <td className="whitespace-nowrap px-3 py-2.5"><Link href={`/claims/${encodeURIComponent(claim.subclaim_code)}`} className="text-[9px] font-extrabold text-[#15516f] hover:underline">{claim.subclaim_code}</Link></td>
+      <td className="px-3 py-2.5"><span className="block text-[9px] font-bold text-slate-700">{claim.patient_name || "Pasien"}</span><span className="mt-0.5 block text-[8px] text-slate-400">{claim.case_number}</span></td>
+      <td className="max-w-[160px] px-3 py-2.5"><span className="block truncate text-[9px] font-semibold text-slate-600">{claim.hospital_name}</span></td>
+      <td className="whitespace-nowrap px-3 py-2.5 text-[9px] font-bold text-[#174966]">{rupiah(claim.requested_amount)}</td>
+      <td className="whitespace-nowrap px-3 py-2.5"><span className="mb-1 flex items-center gap-1 text-[8px] text-slate-400"><Clock3 size={10} />{dateTime(claim.sla_deadline)}</span><StatusBadge status={claim.status} /></td>
+      <td className="px-3 py-2.5 text-right"><Link aria-label={`Buka klaim ${claim.subclaim_code}`} className="inline-flex items-center gap-1 text-[9px] font-bold text-[#24617f] hover:underline" href={`/claims/${encodeURIComponent(claim.subclaim_code)}`}>Buka <ArrowRight size={11} /></Link></td>
     </tr>)}</tbody>
   </table></div>;
 }
 
 export function Panel({ title, eyebrow, children, action }: { title: string; eyebrow?: string; children: React.ReactNode; action?: React.ReactNode }) {
-  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div>{eyebrow && <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[.16em] text-teal-700">{eyebrow}</p>}<h2 className="text-base font-extrabold text-slate-800">{title}</h2></div>{action}</div>{children}</section>;
+  return <section className="overflow-hidden rounded-lg border border-[#e5ebf3] bg-white shadow-[0_2px_8px_rgba(27,65,99,.035)]"><div className="flex items-center justify-between border-b border-[#edf1f6] px-3 py-2.5"><div>{eyebrow && <p className="mb-0.5 text-[8px] font-extrabold uppercase tracking-[.13em] text-[#52728a]">{eyebrow}</p>}<h2 className="text-[11px] font-extrabold text-[#16445f]">{title}</h2></div>{action}</div>{children}</section>;
 }
