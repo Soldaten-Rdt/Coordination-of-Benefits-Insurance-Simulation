@@ -7,3 +7,8 @@ export {
   logoutHospital,
   updateSimulationMode,
 } from "./auth";
+export {
+  getDashboardActionRequired,
+  getDashboardActivities,
+  getDashboardSummary,
+} from "./dashboard";
