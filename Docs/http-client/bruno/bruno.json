@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "KAPJ Flow - Multi-Service Local REST Collection",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

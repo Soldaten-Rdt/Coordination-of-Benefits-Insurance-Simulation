@@ -1,0 +1,72 @@
+### KAPJ Flow — Private Insurance Service REST Client Collection
+@baseUrl = http://localhost:8083
+@serviceKey = kapj_service_key_for_testing_1234567890_min32
+
+### 1. Health Check Asuransi Swasta
+GET {{baseUrl}}/health
+
+### 2. Login Underwriter Asuransi (Bambang Sudarsono)
+# @name loginInsurer
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "bambang.sudarsono@sehatsentosa.co.id",
+  "password": "SecurityToken@2025!"
+}
+
+### Simpan token
+@authToken = {{loginInsurer.response.body.data.access_token}}
+
+### 3. Get Profil Underwriter
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{authToken}}
+
+### 4. [T-204] Dashboard Summary Review Klaim Asuransi Swasta
+GET {{baseUrl}}/api/dashboard/summary
+Authorization: Bearer {{authToken}}
+
+### 5. [T-204] Daftar Subklaim Sekunder CoB Masuk
+GET {{baseUrl}}/api/claims?filter=ALL&page=1&limit=10
+Authorization: Bearer {{authToken}}
+
+### 6. [T-205] Detail Klaim SUB-AST-002
+GET {{baseUrl}}/api/claims/SUB-AST-002
+Authorization: Bearer {{authToken}}
+
+### 7. [T-205] Update Status Review (IN_REVIEW)
+PATCH {{baseUrl}}/api/claims/SUB-AST-002/status
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "status": "IN_REVIEW",
+  "notes": "Sedang memeriksa polis Gold Executive dan rincian BHP kateterisasi"
+}
+
+### 8. [T-205] Preview Simulasi Potongan Non-Cover & Dampak Ekses Pasien
+POST {{baseUrl}}/api/claims/SUB-AST-002/adjudicate-preview
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "non_cover_deduction": 2500000,
+  "deduction_reason": "Suplemen hepar & multivitamin injeksi di luar ketentuan polis Gold Exec Bab 4 Psl 8"
+}
+
+### 9. [T-205] Keputusan Adjudikasi Asuransi Swasta — SETUJU DENGAN POTONGAN (APPROVED)
+POST {{baseUrl}}/api/claims/SUB-AST-002/decide
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "decision": "APPROVED",
+  "approved_amount": 70000000,
+  "non_cover_deduction": 2500000,
+  "deduction_reason": "Suplemen hepar & multivitamin injeksi di luar ketentuan polis Gold Exec Bab 4 Psl 8",
+  "reviewer_notes": "Biaya stent kateterisasi disetujui sebesar Rp 70.000.000 sesuai batasan manfaat polis Gold Executive.",
+  "document_statuses": [
+    { "doc_type": "GL_ASURANSI", "status": "VALID" },
+    { "doc_type": "RINCIAN_BHP", "status": "CLARIFICATION_NEEDED", "note": "Terdapat selisih kover 1 jenis suplemen/vitamin injeksi" }
+  ]
+}

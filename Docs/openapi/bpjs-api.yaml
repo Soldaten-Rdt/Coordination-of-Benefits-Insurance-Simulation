@@ -1,0 +1,202 @@
+openapi: 3.0.3
+info:
+  title: KAPJ Flow — Simulator BPJS Service API
+  description: API Portal Verifikator Medis BPJS Kesehatan untuk penerimaan klaim primer, review indikasi medis, checklist kepatuhan JKN, adjudikasi keputusan, dan callback keputusan ke RS.
+  version: 1.1.0
+servers:
+  - url: http://localhost:8082
+    description: Local Docker / Host BPJS Service
+paths:
+  /health:
+    get:
+      summary: Health Check Service & Database BPJS
+      responses:
+        '200':
+          description: Service dan database sehat
+  /api/auth/login:
+    post:
+      summary: Login Verifikator BPJS Kesehatan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: triana.mayasari@bpjs-kesehatan.go.id
+                password:
+                  type: string
+                  example: reviewerBpjs2025!
+      responses:
+        '200':
+          description: Login sukses mengembalikan token dan profil cabang
+  /api/me:
+    get:
+      summary: Profil Verifikator BPJS yang Sedang Login
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profil verifikator BPJS
+  /api/dashboard/summary:
+    get:
+      summary: Ringkasan Dashboard Review Klaim BPJS
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 5 kartu KPI, SLA urgency, antrean prioritas & faskes teraktif
+  /api/claims:
+    get:
+      summary: Daftar Pengajuan Klaim Masuk BPJS
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [ALL, SLA_URGENT, EXECUTIVE_INPATIENT, SUBMITTED, IN_REVIEW, APPROVED, REVISION_REQUIRED, REJECTED]
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Daftar klaim BPJS terpaginasi
+  /api/claims/{subclaimCode}:
+    get:
+      summary: Detail Review Klinis & Berkas Klaim BPJS
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subclaimCode
+          in: path
+          required: true
+          schema:
+            type: string
+            example: SUB-BPJS-001
+      responses:
+        '200':
+          description: Detail snapshot klinis, dokumen, finansial & log verifikator
+  /api/claims/{subclaimCode}/status:
+    patch:
+      summary: Perbarui Status Review Klaim (misal IN_REVIEW)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subclaimCode
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [SUBMITTED, IN_REVIEW, REVISION_REQUIRED]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Status berhasil diperbarui
+  /api/claims/{subclaimCode}/decide:
+    post:
+      summary: Ambil Keputusan Adjudikasi Klaim BPJS & Kirim Callback ke RS
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subclaimCode
+          in: path
+          required: true
+          schema:
+            type: string
+            example: SUB-BPJS-001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [APPROVED, REVISION_REQUIRED, REJECTED]
+                approved_amount:
+                  type: integer
+                  example: 37500000
+                compliance_checks:
+                  type: object
+                  properties:
+                    jkn_active:
+                      type: boolean
+                    referral_valid:
+                      type: boolean
+                    icd_coding_match:
+                      type: boolean
+                    no_duplicate_claim:
+                      type: boolean
+                reviewer_notes:
+                  type: string
+                  example: Klaim sesuai indikasi medis dan regulasi Ina-CBGs Kelas 1 rawat inap. Disetujui penuh.
+                document_statuses:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Keputusan berhasil disimpan dan diteruskan ke RS via callback
+  /api/webhooks/claims:
+    post:
+      summary: Webhook Receiver Penerimaan Paket Klaim dari RS
+      security:
+        - ServiceKeyAuth: []
+        - SourceNode: []
+      responses:
+        '200':
+          description: Paket klaim diterima dan disimpan
+  /api/webhooks/messages:
+    post:
+      summary: Webhook Receiver Pesan Klarifikasi dari RS
+      security:
+        - ServiceKeyAuth: []
+        - SourceNode: []
+      responses:
+        '200':
+          description: Pesan tercatat pada log klaim
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ServiceKeyAuth:
+      type: apiKey
+      in: header
+      name: X-KAPJ-Service-Key
+    SourceNode:
+      type: apiKey
+      in: header
+      name: X-KAPJ-Source-Node

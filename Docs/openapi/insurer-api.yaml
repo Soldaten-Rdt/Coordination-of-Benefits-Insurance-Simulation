@@ -1,0 +1,229 @@
+openapi: 3.0.3
+info:
+  title: KAPJ Flow — Private Insurance Service API
+  description: API Portal Adjudikator / Underwriter Asuransi Swasta untuk verifikasi batasan manfaat polis, kalkulasi potongan item non-cover, preview dampak ekses pasien, adjudikasi klaim sekunder CoB, dan callback keputusan ke RS.
+  version: 1.1.0
+servers:
+  - url: http://localhost:8083
+    description: Local Docker / Host Insurer Service
+paths:
+  /health:
+    get:
+      summary: Health Check Service & Database Asuransi Swasta
+      responses:
+        '200':
+          description: Service dan database sehat
+  /api/auth/login:
+    post:
+      summary: Login Underwriter Asuransi Swasta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: bambang.sudarsono@sehatsentosa.co.id
+                password:
+                  type: string
+                  example: SecurityToken@2025!
+      responses:
+        '200':
+          description: Login sukses mengembalikan token dan batas otoritas underwriter
+  /api/me:
+    get:
+      summary: Profil Underwriter Asuransi yang Sedang Login
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profil underwriter beserta nama entitas asuransi
+  /api/dashboard/summary:
+    get:
+      summary: Ringkasan Dashboard Review Klaim Asuransi Swasta
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 5 kartu KPI, parameter polis CoB, klaim sekunder terbaru & log aktivitas
+  /api/claims:
+    get:
+      summary: Daftar Pengajuan Subklaim Sekunder CoB Masuk
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [ALL, SUBMITTED, IN_REVIEW, REVISION_REQUIRED, APPROVED, REJECTED]
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: insurer_name
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Daftar klaim asuransi terpaginasi
+  /api/claims/{subclaimCode}:
+    get:
+      summary: Detail Review Manfaat Polis & Berkas Klaim Sekunder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subclaimCode
+          in: path
+          required: true
+          schema:
+            type: string
+            example: SUB-AST-002
+      responses:
+        '200':
+          description: Snapshot polis, diagnosis, rincian biaya, potongan & log adjudikator
+  /api/claims/{subclaimCode}/status:
+    patch:
+      summary: Perbarui Status Review Klaim (misal IN_REVIEW)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subclaimCode
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [SUBMITTED, IN_REVIEW, REVISION_REQUIRED]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Status klaim berhasil diperbarui
+  /api/claims/{subclaimCode}/adjudicate-preview:
+    post:
+      summary: Simulasi Perhitungan Potongan Item Non-Cover & Dampak Ekses Pasien
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subclaimCode
+          in: path
+          required: true
+          schema:
+            type: string
+            example: SUB-AST-002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                non_cover_deduction:
+                  type: integer
+                  example: 2500000
+                deduction_reason:
+                  type: string
+                  example: Suplemen hepar & multivitamin injeksi di luar ketentuan polis Gold Exec Bab 4 Psl 8
+      responses:
+        '200':
+          description: Hasil preview simulasi potongan dan ekses pasien
+  /api/claims/{subclaimCode}/decide:
+    post:
+      summary: Ambil Keputusan Adjudikasi Asuransi Swasta & Kirim Callback ke RS
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subclaimCode
+          in: path
+          required: true
+          schema:
+            type: string
+            example: SUB-AST-002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [APPROVED, REVISION_REQUIRED, REJECTED]
+                approved_amount:
+                  type: integer
+                  example: 70000000
+                non_cover_deduction:
+                  type: integer
+                  example: 2500000
+                deduction_reason:
+                  type: string
+                  example: Suplemen hepar & multivitamin injeksi di luar ketentuan polis Gold Exec Bab 4 Psl 8
+                reviewer_notes:
+                  type: string
+                  example: Biaya stent kateterisasi disetujui sebesar Rp 70.000.000 sesuai batasan manfaat polis Gold Executive.
+                document_statuses:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Keputusan adjudikasi berhasil disimpan dan diteruskan ke RS via callback
+  /api/webhooks/claims:
+    post:
+      summary: Webhook Receiver Penerimaan Paket Klaim dari RS
+      security:
+        - ServiceKeyAuth: []
+        - SourceNode: []
+      responses:
+        '200':
+          description: Paket klaim diterima dan disimpan
+  /api/webhooks/messages:
+    post:
+      summary: Webhook Receiver Pesan Klarifikasi dari RS
+      security:
+        - ServiceKeyAuth: []
+        - SourceNode: []
+      responses:
+        '200':
+          description: Pesan tercatat pada log klaim
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ServiceKeyAuth:
+      type: apiKey
+      in: header
+      name: X-KAPJ-Service-Key
+    SourceNode:
+      type: apiKey
+      in: header
+      name: X-KAPJ-Source-Node

@@ -100,6 +100,28 @@ func (a *App) routes() {
 	a.protected("GET /api/payments", a.listPayments)
 	a.protected("GET /api/payments/summary", a.paymentSummary)
 	a.protected("GET /api/payments/bank-reconciliation", a.bankReconciliation)
+
+	// Dev B - T-201: Subclaim Dispatcher
+	a.protected("POST /api/cases/{id}/subclaims/submit", a.submitSubclaims)
+	a.protected("POST /api/cases/{id}/subclaims/{subclaimId}/resubmit", a.resubmitSubclaim)
+
+	// Dev B - T-206: Case Messages & Notifications
+	a.protected("POST /api/cases/{id}/messages", a.sendCaseMessage)
+	a.protected("GET /api/notifications", a.listNotifications)
+	a.protected("PATCH /api/notifications/{id}/read", a.markNotificationRead)
+
+	// Dev B - T-206: Webhooks from Payers
+	a.protectedServiceKey("POST /api/webhooks/claim-response", a.hospitalReceiveClaimResponseWebhook)
+	a.protectedServiceKey("POST /api/webhooks/insurer-message", a.hospitalReceiveInsurerMessageWebhook)
+
+	// Dev B - T-304: Hospital Operations Dashboard
+	a.protected("GET /api/dashboard/summary", a.hospitalDashboardSummary)
+	a.protected("GET /api/dashboard/action-required", a.hospitalActionRequired)
+	a.protected("GET /api/dashboard/activities", a.hospitalDashboardActivities)
+
+	// T-402: Swagger UI & OpenAPI spec
+	a.registerSwaggerRoutes()
+
 	a.mux.Handle("GET /uploads/{path...}", middleware.RequireJWT(
 		http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir()))),
 	))
@@ -109,9 +131,39 @@ func (a *App) protected(pattern string, handler http.HandlerFunc) {
 	a.mux.Handle(pattern, middleware.RequireJWT(handler))
 }
 
+func (a *App) protectedServiceKey(pattern string, handler http.HandlerFunc) {
+	a.mux.Handle(pattern, middleware.RequireServiceKey(handler))
+}
+
 func (a *App) registerPayerRoutes() {
 	a.mux.HandleFunc("POST /api/auth/login", a.payerLogin)
-	a.mux.Handle("GET /api/me", middleware.RequireJWT(http.HandlerFunc(a.payerMe)))
+	a.protected("GET /api/me", a.payerMe)
+	a.registerSwaggerRoutes()
+
+	if a.service == "bpjs" {
+		// Dev B - T-202: BPJS Dashboard & Claims
+		a.protected("GET /api/dashboard/summary", a.bpjsDashboardSummary)
+		a.protected("GET /api/claims", a.listBPJSClaims)
+		a.protected("GET /api/claims/{subclaimCode}", a.getBPJSClaimDetail)
+		a.protected("PATCH /api/claims/{subclaimCode}/status", a.patchBPJSClaimStatus)
+		a.protected("POST /api/claims/{subclaimCode}/decide", a.decideBPJSClaim)
+
+		// Dev B - T-203: Webhooks from Hospital
+		a.protectedServiceKey("POST /api/webhooks/claims", a.bpjsReceiveClaimWebhook)
+		a.protectedServiceKey("POST /api/webhooks/messages", a.bpjsReceiveMessageWebhook)
+	} else if a.service == "insurer" {
+		// Dev B - T-204: Insurer Dashboard & Claims
+		a.protected("GET /api/dashboard/summary", a.insurerDashboardSummary)
+		a.protected("GET /api/claims", a.listInsurerClaims)
+		a.protected("GET /api/claims/{subclaimCode}", a.getInsurerClaimDetail)
+		a.protected("PATCH /api/claims/{subclaimCode}/status", a.patchInsurerClaimStatus)
+		a.protected("POST /api/claims/{subclaimCode}/adjudicate-preview", a.previewInsurerAdjudication)
+		a.protected("POST /api/claims/{subclaimCode}/decide", a.decideInsurerClaim)
+
+		// Dev B - T-205: Webhooks from Hospital
+		a.protectedServiceKey("POST /api/webhooks/claims", a.insurerReceiveClaimWebhook)
+		a.protectedServiceKey("POST /api/webhooks/messages", a.insurerReceiveMessageWebhook)
+	}
 }
 
 func uploadDir() string {

@@ -9,6 +9,7 @@ FROM alpine:3.21
 RUN adduser -D -u 10001 appuser
 WORKDIR /app
 COPY --from=build /out/kapj-api /app/kapj-api
+COPY --from=build /src/Docs/openapi /app/docs/openapi
 RUN mkdir -p /app/uploads && chown -R appuser:appuser /app
 USER appuser
 EXPOSE 8081

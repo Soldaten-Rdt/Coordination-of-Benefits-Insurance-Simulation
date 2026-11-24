@@ -1,0 +1,142 @@
+### KAPJ Flow — Hospital Service REST Client Collection
+@baseUrl = http://localhost:8081
+@serviceKey = kapj_service_key_for_testing_1234567890_min32
+
+### 1. Health Check
+GET {{baseUrl}}/health
+
+### 2. Login Petugas RS (Siti Rahmawati)
+# @name loginHospital
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "siti.rahmawati@rs-jantung.co.id",
+  "password": "KasirRS#2025"
+}
+
+### Simpan token dari respons di atas
+@authToken = {{loginHospital.response.body.data.access_token}}
+
+### 3. Get Profil Petugas RS
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{authToken}}
+
+### 4. Get System Config
+GET {{baseUrl}}/api/system/config
+Authorization: Bearer {{authToken}}
+
+### 5. Toggle Simulation Mode (COB)
+PATCH {{baseUrl}}/api/system/simulation-mode
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "simulation_mode": "COB",
+  "default_split_preset": "ARBITRARY_COB_30_58_12"
+}
+
+### 6. Summary Pasien
+GET {{baseUrl}}/api/patients/summary
+Authorization: Bearer {{authToken}}
+
+### 7. List Pasien
+GET {{baseUrl}}/api/patients?page=1&limit=10
+Authorization: Bearer {{authToken}}
+
+### 8. Detail Pasien (ID 1 - Aulia Ramadhani)
+GET {{baseUrl}}/api/patients/1
+Authorization: Bearer {{authToken}}
+
+### 9. List Kasus
+GET {{baseUrl}}/api/cases?tab=ALL
+Authorization: Bearer {{authToken}}
+
+### 10. Detail Kasus (ID 1 - KAS-2026-001)
+GET {{baseUrl}}/api/cases/1
+Authorization: Bearer {{authToken}}
+
+### 11. Cek Kelengkapan Dokumen Kasus 1
+GET {{baseUrl}}/api/cases/1/documents
+Authorization: Bearer {{authToken}}
+
+### 12. Hitung Simulasi Split Bill (Arbitrary 30% / 58% / 12%)
+POST {{baseUrl}}/api/cases/1/split-bill/calculate
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "preset_name": "Simulasi CoB Standar (30% BPJS / 58% Swasta / 12% Pasien)",
+  "split_method": "PERCENTAGE",
+  "bpjs_percent": 30.0,
+  "insurer_percent": 58.0,
+  "patient_percent": 12.0
+}
+
+### 13. Terapkan Simulasi Split Bill (Apply)
+POST {{baseUrl}}/api/cases/1/split-bill/apply
+Authorization: Bearer {{authToken}}
+
+### 14. [T-201] Dispatch Pengajuan Subklaim ke BPJS & Asuransi Swasta
+POST {{baseUrl}}/api/cases/1/subclaims/submit
+Authorization: Bearer {{authToken}}
+
+### 15. [T-201] Kirim Ulang Subklaim Pasca Revisi
+POST {{baseUrl}}/api/cases/1/subclaims/1/resubmit
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "notes": "Berkas resume medis dan BHP telah diperbarui"
+}
+
+### 16. [T-206] Kirim Pesan / Klarifikasi ke Penjamin
+POST {{baseUrl}}/api/cases/1/messages
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "subclaim_id": 1,
+  "message": "Mohon konfirmasi verifikasi SEP dan resume medis digital pasien."
+}
+
+### 17. [T-206] List Notifikasi RS
+GET {{baseUrl}}/api/notifications
+Authorization: Bearer {{authToken}}
+
+### 18. [T-206] Tandai Notifikasi Dibaca
+PATCH {{baseUrl}}/api/notifications/1/read
+Authorization: Bearer {{authToken}}
+
+### 19. [T-304] Dashboard Operasional RS Summary
+GET {{baseUrl}}/api/dashboard/summary
+Authorization: Bearer {{authToken}}
+
+### 20. [T-304] Panel Prioritas Perlu Tindak Lanjut
+GET {{baseUrl}}/api/dashboard/action-required
+Authorization: Bearer {{authToken}}
+
+### 21. [T-304] Feed Aktivitas RS
+GET {{baseUrl}}/api/dashboard/activities
+Authorization: Bearer {{authToken}}
+
+### 22. Get Invoice Kasus 1
+GET {{baseUrl}}/api/cases/1/invoice
+Authorization: Bearer {{authToken}}
+
+### 23. Catat Pembayaran BPJS (Rp 37.500.000)
+POST {{baseUrl}}/api/cases/1/payments
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "payer_source": "BPJS",
+  "subclaim_id": 1,
+  "payment_method": "BANK_TRANSFER",
+  "amount": 37500000,
+  "bank_reference": "TRF-BPJS-9018237"
+}
+
+### 24. Rekap Finansial & Rekonsiliasi Bank
+GET {{baseUrl}}/api/payments/summary
+Authorization: Bearer {{authToken}}

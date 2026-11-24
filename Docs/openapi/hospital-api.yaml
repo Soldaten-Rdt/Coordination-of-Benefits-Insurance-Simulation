@@ -1,0 +1,562 @@
+openapi: 3.0.3
+info:
+  title: KAPJ Flow — Hospital Service API
+  description: API Backend Hospital Workspace untuk manajemen pasien, episode kasus rawat, berkas dokumen, simulasi arbitrary split-bill, pengajuan klaim penjamin ganda (CoB), rekonsiliasi pembayaran, dan dashboard operasional.
+  version: 1.1.0
+servers:
+  - url: http://localhost:8081
+    description: Local Docker / Host Hospital Service
+paths:
+  /health:
+    get:
+      summary: Health Check Service & Database
+      responses:
+        '200':
+          description: Service dan database sehat
+  /api/auth/login:
+    post:
+      summary: Login Petugas RS (Admin Billing & Casemix)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: siti.rahmawati@rs-jantung.co.id
+                password:
+                  type: string
+                  example: KasirRS#2025
+      responses:
+        '200':
+          description: Login sukses mengembalikan JWT token
+  /api/auth/logout:
+    post:
+      summary: Logout Petugas RS
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Berhasil logout
+  /api/me:
+    get:
+      summary: Profil Petugas RS yang Sedang Login
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profil pengguna
+  /api/system/config:
+    get:
+      summary: Konfigurasi Sistem RS (Mode Simulasi & Preset)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Konfigurasi sistem
+  /api/system/simulation-mode:
+    patch:
+      summary: Toggle Mode Simulasi (COB vs NON_COB)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                simulation_mode:
+                  type: string
+                  enum: [COB, NON_COB]
+                default_split_preset:
+                  type: string
+      responses:
+        '200':
+          description: Konfigurasi berhasil diperbarui
+  /api/patients:
+    get:
+      summary: Direktori & Pencarian Pasien
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: tab
+          in: query
+          schema:
+            type: string
+            enum: [ALL, ACTIVE_CASE, ACTION_REQUIRED, UNPAID]
+        - name: payer
+          in: query
+          schema:
+            type: string
+            enum: [ALL, BPJS, PRIVATE_INSURANCE]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Daftar pasien terpaginasi
+    post:
+      summary: Registrasi Pasien Baru Beserta Kepesertaan Penjamin
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Pasien berhasil didaftarkan
+  /api/patients/summary:
+    get:
+      summary: Ringkasan Metrik Direktori Pasien
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Metrik direktori
+  /api/patients/verify-bpjs:
+    post:
+      summary: Verifikasi Simulasi Kepesertaan BPJS (13 Digit)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Data kepesertaan BPJS
+  /api/patients/{id}:
+    get:
+      summary: Detail Profil Pasien, Kepesertaan & Riwayat Kasus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Profil lengkap pasien
+    patch:
+      summary: Update Kontak / Data Pasien
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Data pasien berhasil diperbarui
+  /api/patients/{id}/coverages:
+    patch:
+      summary: Update Plafon / Status Polis Pasien
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Polis berhasil diperbarui
+  /api/cases:
+    get:
+      summary: Daftar Kasus Perawatan RS
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: tab
+          in: query
+          schema:
+            type: string
+            enum: [ALL, NEEDS_DOCUMENTS, IN_REVIEW, READY_RECONCILE]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ALL, UNPAID, PARTIAL, PAID]
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Daftar kasus terpaginasi
+    post:
+      summary: Buat Kasus Perawatan Baru & Checklist Dokumen
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Kasus berhasil dibuat
+  /api/cases/{id}:
+    get:
+      summary: Detail Lengkap Kasus Perawatan & Alur 6 Tahap
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detail kasus
+    patch:
+      summary: Update Informasi Kasus Perawatan
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Kasus berhasil diperbarui
+  /api/cases/{id}/discharge-checklist:
+    patch:
+      summary: Update Checkbox Dokumen Kritis Sebelum Pulang
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Checklist pulang berhasil diperbarui
+  /api/documents/upload:
+    post:
+      summary: Unggah Dokumen Pendukung (PDF/JPG/PNG maks 10MB)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: File berhasil diunggah
+  /api/cases/{id}/documents:
+    get:
+      summary: Daftar Dokumen & Cek Kelengkapan Wajib Kasus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Dokumen kasus & missing list
+    post:
+      summary: Kaitkan Berkas Terunggah ke Checklist Kasus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Berkas berhasil dikaitkan
+  /api/cases/{id}/documents/{docId}:
+    delete:
+      summary: Hapus Metadata & File Dokumen Kasus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Dokumen berhasil dihapus
+  /api/cases/{id}/split-bill/calculate:
+    post:
+      summary: Hitung Simulasi Arbitrary Split Bill (Persentase / Nominal)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Hasil kalkulasi simulasi
+  /api/cases/{id}/split-bill:
+    get:
+      summary: Baca Simulasi Split Bill & Alokasi Baris Biaya
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Simulasi split bill
+  /api/cases/{id}/split-bill/apply:
+    post:
+      summary: Terapkan Hasil Simulasi ke Draft Subklaim
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Simulasi berhasil diterapkan
+  /api/cases/{id}/subclaims/submit:
+    post:
+      summary: Dispatch Pengajuan Subklaim ke BPJS dan/atau Asuransi Swasta
+      description: Memvalidasi split bill dan kelengkapan berkas, mengemas ClaimBundle JSON FHIR-inspired, dan mengirimkan ke penjamin terkait.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Subklaim berhasil diajukan ke penjamin
+        '422':
+          description: Berkas wajib belum lengkap atau split bill belum diterapkan
+        '502':
+          description: Gateway penjamin tidak dapat dihubungi
+  /api/cases/{id}/subclaims/{subclaimId}/resubmit:
+    post:
+      summary: Kirim Ulang Subklaim Pasca Perbaikan Revisi Berkas
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: subclaimId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Subklaim berhasil dikirim ulang
+  /api/cases/{id}/messages:
+    post:
+      summary: Kirim Pesan Klarifikasi RS ke Penjamin Terkait
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Pesan berhasil disimpan dan diteruskan
+  /api/cases/{id}/invoice:
+    get:
+      summary: Ambil Invoice Simulasi & Rekap Pembagian Biaya CoB
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Invoice lengkap
+  /api/cases/{id}/invoice/send-patient:
+    post:
+      summary: Catat Penyerahan / Pengiriman Invoice ke Pasien
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Invoice ditandai telah dikirim
+  /api/cases/{id}/payments:
+    post:
+      summary: Catat Transaksi Pembayaran (BPJS / Swasta / Pasien)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pembayaran berhasil dicatat
+  /api/payments:
+    get:
+      summary: Daftar Seluruh Kasus & Transaksi Pembayaran RS
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List pembayaran terpaginasi
+  /api/payments/summary:
+    get:
+      summary: Ringkasan Finansial Agregat RS
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 4 KPI Finansial
+  /api/payments/bank-reconciliation:
+    get:
+      summary: Feed Rekonsiliasi Mutasi Pembayaran Bank Escrow
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Feed rekonsiliasi
+  /api/dashboard/summary:
+    get:
+      summary: Ringkasan Dashboard Operasional RS (KPI & Alokasi Biaya)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: KPI dashboard operasional
+  /api/dashboard/action-required:
+    get:
+      summary: Panel Prioritas Perlu Tindak Lanjut (Revisi, Dokumen Kurang, Siap Rekonsiliasi)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Item prioritas perlu tindak lanjut
+  /api/dashboard/activities:
+    get:
+      summary: Feed Aktivitas Operasional RS Terbaru
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Linimasa aktivitas
+  /api/notifications:
+    get:
+      summary: Daftar Notifikasi Masuk RS & Jumlah Belum Dibaca
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: unread_only
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Daftar notifikasi
+  /api/notifications/{id}/read:
+    patch:
+      summary: Tandai Notifikasi Sebagai Telah Dibaca
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Notifikasi ditandai dibaca
+  /api/webhooks/claim-response:
+    post:
+      summary: Webhook Receiver Keputusan Klaim dari Penjamin
+      description: Endpoint inter-service untuk menerima ClaimResponseBundle dari BPJS atau Asuransi Swasta, lalu merekonsiliasi porsi klaim & ekses pasien.
+      security:
+        - ServiceKeyAuth: []
+        - SourceNode: []
+      responses:
+        '200':
+          description: Keputusan berhasil direkonsiliasi
+  /api/webhooks/insurer-message:
+    post:
+      summary: Webhook Receiver Pesan Komunikasi dari Penjamin
+      security:
+        - ServiceKeyAuth: []
+        - SourceNode: []
+      responses:
+        '200':
+          description: Pesan berhasil dicatat
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ServiceKeyAuth:
+      type: apiKey
+      in: header
+      name: X-KAPJ-Service-Key
+    SourceNode:
+      type: apiKey
+      in: header
+      name: X-KAPJ-Source-Node

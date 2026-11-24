@@ -51,3 +51,22 @@ func parsePositiveID(value string) (int64, error) {
 	}
 	return id, nil
 }
+
+func extractInt64(val interface{}) int64 {
+	switch v := val.(type) {
+	case float64:
+		return int64(v)
+	case int64:
+		return v
+	case int:
+		return int64(v)
+	case json.Number:
+		n, _ := v.Int64()
+		return n
+	case string:
+		n, _ := strconv.ParseInt(v, 10, 64)
+		return n
+	default:
+		return 0
+	}
+}

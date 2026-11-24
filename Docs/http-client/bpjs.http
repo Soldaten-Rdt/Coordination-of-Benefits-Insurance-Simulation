@@ -1,0 +1,76 @@
+### KAPJ Flow — BPJS Service REST Client Collection
+@baseUrl = http://localhost:8082
+@serviceKey = kapj_service_key_for_testing_1234567890_min32
+
+### 1. Health Check BPJS
+GET {{baseUrl}}/health
+
+### 2. Login Verifikator BPJS (dr. Triana M.)
+# @name loginBPJS
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "triana.mayasari@bpjs-kesehatan.go.id",
+  "password": "reviewerBpjs2025!"
+}
+
+### Simpan token
+@authToken = {{loginBPJS.response.body.data.access_token}}
+
+### 3. Get Profil Verifikator BPJS
+GET {{baseUrl}}/api/me
+Authorization: Bearer {{authToken}}
+
+### 4. [T-202] Dashboard Summary Review Klaim BPJS
+GET {{baseUrl}}/api/dashboard/summary
+Authorization: Bearer {{authToken}}
+
+### 5. [T-202] Daftar Klaim Masuk BPJS
+GET {{baseUrl}}/api/claims?filter=ALL&page=1&limit=10
+Authorization: Bearer {{authToken}}
+
+### 6. [T-202] Antrean Klaim SLA Urgent
+GET {{baseUrl}}/api/claims?filter=SLA_URGENT
+Authorization: Bearer {{authToken}}
+
+### 7. [T-203] Detail Klaim SUB-BPJS-001
+GET {{baseUrl}}/api/claims/SUB-BPJS-001
+Authorization: Bearer {{authToken}}
+
+### 8. [T-203] Update Status Review (IN_REVIEW)
+PATCH {{baseUrl}}/api/claims/SUB-BPJS-001/status
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "status": "IN_REVIEW",
+  "notes": "Sedang memverifikasi kesesuaian koding diagnosis Ina-CBGs"
+}
+
+### 9. [T-203] Keputusan Adjudikasi BPJS — SETUJU (APPROVED)
+POST {{baseUrl}}/api/claims/SUB-BPJS-001/decide
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "decision": "APPROVED",
+  "approved_amount": 37500000,
+  "compliance_checks": {
+    "jkn_active": true,
+    "referral_valid": true,
+    "icd_coding_match": true,
+    "no_duplicate_claim": true
+  },
+  "reviewer_notes": "Klaim sesuai indikasi medis dan regulasi Ina-CBGs Kelas 1 rawat inap. Disetujui penuh untuk batas pertanggungan primer."
+}
+
+### 10. [T-203] Keputusan Alternatif — Minta Revisi Berkas
+# POST {{baseUrl}}/api/claims/SUB-BPJS-001/decide
+# Authorization: Bearer {{authToken}}
+# Content-Type: application/json
+# 
+# {
+#   "decision": "REVISION_REQUIRED",
+#   "reviewer_notes": "Mohon lampirkan hasil pembacaan EKG serial dan resume medis bertandatangan DPJP."
+# }
