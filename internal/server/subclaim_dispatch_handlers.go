@@ -598,7 +598,7 @@ func (a *App) resubmitSubclaim(w http.ResponseWriter, r *http.Request) {
 		SET coordination_status = 'IN_REVIEW', updated_at = NOW()
 		WHERE id = $1`, caseID)
 
-	actorName, actorRole := actor(r)
+	actorName, _ := actor(r)
 	notesText := input.Notes
 	if notesText == "" {
 		notesText = "Berkas revisi telah diunggah dan dikirim ulang"
