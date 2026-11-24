@@ -1,0 +1,54 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+:root {
+  --bg-page: #f6f8fe;
+  --surface: #ffffff;
+  --tint: #eaf0fb;
+  --navy-900: #0b3a5b;
+  --navy-700: #154b6b;
+  --text-muted: #5b6b7b;
+  --accent-red: #d0214f;
+  --border-soft: #e3eaf5;
+  --peach-bg: #ffe4c4;
+  --peach-text: #a8510b;
+  --pink-bg: #fce4ea;
+  --blue-soft: #dce8f9;
+  --blue-mid: #1f5f8b;
+  --shadow-card: 0 4px 18px rgba(11, 58, 91, 0.06);
+}
+
+@theme inline {
+  --color-bg-page: #f6f8fe;
+  --color-surface: #ffffff;
+  --color-tint: #eaf0fb;
+  --color-navy-900: #0b3a5b;
+  --color-navy-700: #154b6b;
+  --color-text-muted: #5b6b7b;
+  --color-accent-red: #d0214f;
+  --color-border-soft: #e3eaf5;
+  --color-peach-bg: #ffe4c4;
+  --color-peach-text: #a8510b;
+  --color-pink-bg: #fce4ea;
+  --color-blue-soft: #dce8f9;
+  --color-blue-mid: #1f5f8b;
+
+  --font-sans: "Plus Jakarta Sans", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    background-color: var(--bg-page);
+    color: var(--navy-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    border-color: var(--border-soft);
+  }
+}
