@@ -23,23 +23,19 @@ func (a *App) swaggerSpec(w http.ResponseWriter, r *http.Request) {
 		filepath.Join("/app", "Docs", "openapi", fileName),
 	}
 
+	var lastErr error
 	for _, p := range searchPaths {
-		if data, err := os.ReadFile(p); err == nil {
+		data, err := os.ReadFile(p)
+		if err == nil {
 			w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write(data)
 			return
 		}
+		lastErr = err
 	}
 
-	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(fmt.Sprintf(`openapi: 3.0.3
-info:
-  title: KAPJ %s Service API
-  version: 1.1.0
-paths: {}
-`, a.service)))
+	http.Error(w, fmt.Sprintf("OpenAPI specification for %s service is unavailable: %v", a.service, lastErr), http.StatusInternalServerError)
 }
 
 func (a *App) swaggerUI(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +43,7 @@ func (a *App) swaggerUI(w http.ResponseWriter, r *http.Request) {
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>KAPJ Flow — %s Service API Documentation</title>
+  <title>KAPJ Flow - %s Service API Documentation</title>
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui.css" />
   <style>
     body { margin: 0; padding: 0; background: #fafafa; font-family: sans-serif; }

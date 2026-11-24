@@ -86,6 +86,7 @@ Ketiga aplikasi berkomunikasi secara asinkron/sinkron melalui **HTTP REST & Webh
    ```bash
    cp .env.example .env
    ```
+   Sebelum menjalankan Compose, ganti `JWT_SECRET` dan `KAPJ_SERVICE_KEY` dengan nilai acak minimal 32 karakter.
 
 3. **Build dan jalankan seluruh container:**
    ```bash
@@ -107,11 +108,12 @@ Ketiga aplikasi berkomunikasi secara asinkron/sinkron melalui **HTTP REST & Webh
 
 ### Status Implementasi Backend
 
-Backend Dev A menggunakan satu binary Go yang dijalankan sebagai tiga service terpisah (`hospital`, `bpjs`, `insurer`) dengan database PostgreSQL masing-masing. Implementasi saat ini mencakup fondasi service, migrasi dan demo data, serta endpoint Hospital untuk autentikasi/config, pasien, kasus, dokumen, split bill, invoice, dan pembayaran.
+Backend menggunakan satu binary Go yang dijalankan sebagai tiga service terpisah (`hospital`, `bpjs`, `insurer`) dengan database PostgreSQL masing-masing. Hospital API mencakup autentikasi/config, pasien, kasus, dokumen, split bill, invoice, pembayaran, dispatcher klaim, callback, komunikasi, notifikasi, dan dashboard. BPJS dan insurer menyediakan dashboard, penerimaan klaim, serta adjudikasi.
 
-Endpoint review klaim BPJS/Asuransi, pengajuan dan callback antar-service, dashboard operasional, serta integrasi end-to-end masih menjadi pekerjaan Dev B dan Fase 4 bersama. Frontend Next.js belum tersedia di repo ini; compose saat ini menyalakan tiga API dan database.
+Fase 4 menyediakan Swagger/OpenAPI, koleksi REST client lokal, dan test integrasi yang menjalankan alur CoB, permintaan revisi/resubmit, serta Non-CoB terhadap ketiga API yang hidup. Frontend Next.js belum tersedia di repo ini; Compose menyalakan tiga API dan database, siap dikonsumsi frontend melalui kontrak API.
 
-Untuk konfigurasi lokal, salin `.env.example` menjadi `.env`, lalu ganti `JWT_SECRET` dan `KAPJ_SERVICE_KEY` dengan nilai acak minimal 32 karakter sebelum menjalankan Compose.
+Dokumen implementasi Dev A adalah catatan cakupan historis; status pekerjaan lintas service dan handoff terbaru ada di [Implementasi Backend Dev B](./Docs/Backend/implementasi-backend-dev-b.md) dan [Frontend Handoff](./Docs/FRONTEND_HANDOFF.md).
+Panduan integrasi langkah demi langkah tersedia di [Dokumentasi Penggabungan Frontend dan Backend](./Docs/Backend/dokumentasi-penggabungan-frontend-backend.md).
 
 Dokumentasi implementasi komprehensif: [Implementasi Backend Dev A (Markdown)](./Docs/Backend/implementasi-backend-dev-a.md). [Infografik PNG](./Docs/Backend/implementasi-backend-dev-a.png) tersedia sebagai ringkasan visual.
 
@@ -131,7 +133,23 @@ Kredensial berikut ditanam sebagai akun demo untuk menguji endpoint login API. U
 
 ## 📖 Dokumentasi API & Pengujian Lokal
 
-Dokumen [Implementasi Backend Dev A](./Docs/Backend/implementasi-backend-dev-a.md) mencantumkan endpoint yang tersedia. Spesifikasi OpenAPI/Swagger, koleksi `.http`, dan frontend handoff merupakan tiket `T-402` Fase 4 yang menunggu integrasi bersama Dev B; artefak tersebut belum tersedia.
+Kontrak tersedia melalui Swagger pada `http://localhost:8081/swagger/`, `http://localhost:8082/swagger/`, dan `http://localhost:8083/swagger/`. File OpenAPI ada di `Docs/openapi/`, sedangkan REST Client dan Bruno collection ada di `Docs/http-client/`.
+
+Jalankan validasi unit/build dari root repo:
+
+```powershell
+go test ./...
+go vet ./...
+```
+
+Dengan ketiga API berjalan melalui Docker Compose, jalankan skenario integrasi lintas service:
+
+```powershell
+$env:KAPJ_E2E = "1"
+go test ./internal/server -run '^TestE2ECoBRevisionAndNonCoB$' -count=1 -v
+```
+
+Test tersebut membuat data simulasi baru pada database Compose: alur CoB sampai pembayaran lunas, alur permintaan revisi dan resubmit, serta alur Non-CoB yang hanya mengirim klaim ke BPJS.
 
 ---
 

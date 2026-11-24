@@ -26,8 +26,8 @@ Sebelumnya pada tahap Dev A, ketiga service Go sudah disiapkan pondasinya, namun
 | **T-205** | **Receiver & Adjudikasi Swasta (Potongan Non-Cover)** | `insurer-service` (`:8083`) | `POST /api/webhooks/claims`<br>`POST /api/webhooks/messages`<br>`GET /api/claims/:subclaimCode`<br>`PATCH /api/claims/:subclaimCode/status`<br>`POST /api/claims/:subclaimCode/adjudicate-preview`<br>`POST /api/claims/:subclaimCode/decide` | **SELESAI (100%)** |
 | **T-206** | **Hospital Webhook Receiver, Komunikasi & Notifikasi** | `hospital-service` (`:8081`) | `POST /api/webhooks/claim-response`<br>`POST /api/webhooks/insurer-message`<br>`POST /api/cases/:id/messages`<br>`GET /api/notifications`<br>`PATCH /api/notifications/:id/read` | **SELESAI (100%)** |
 | **T-304** | **Dashboard Operasional RS & Tindak Lanjut** | `hospital-service` (`:8081`) | `GET /api/dashboard/summary`<br>`GET /api/dashboard/action-required`<br>`GET /api/dashboard/activities` | **SELESAI (100%)** |
-| **T-401** | **E2E Integration Test Suite** | All Services | `internal/server/adjudication_test.go` & Test Scenarios CoB/Non-CoB/Revision | **SELESAI (100%)** |
-| **T-402** | **OpenAPI 3.0, Swagger UI & Local Clients** | All Services | `docs/openapi/*.yaml`<br>`GET /swagger/`<br>`docs/http-client/*.http`<br>`docs/FRONTEND_HANDOFF.md` | **SELESAI (100%)** |
+| **T-401** | **E2E Integration Test Suite** | All Services | `internal/server/e2e_test.go` (CoB, revision/resubmit, Non-CoB) dan unit tests | **TERVERIFIKASI** |
+| **T-402** | **OpenAPI 3.0, Swagger UI & Local Clients** | All Services | `Docs/openapi/*.yaml`<br>`GET /swagger/`<br>`Docs/http-client/*.http`<br>`Docs/FRONTEND_HANDOFF.md` | **TERSEDIA** |
 
 ---
 
@@ -87,17 +87,17 @@ Sebelumnya pada tahap Dev A, ketiga service Go sudah disiapkan pondasinya, namun
 
 ### F. Dokumentasi OpenAPI 3.0, Swagger UI & Local REST Client (`T-402`)
 * **Files:**
-  * `docs/openapi/hospital-api.yaml`
-  * `docs/openapi/bpjs-api.yaml`
-  * `docs/openapi/insurer-api.yaml`
+  * `Docs/openapi/hospital-api.yaml`
+  * `Docs/openapi/bpjs-api.yaml`
+  * `Docs/openapi/insurer-api.yaml`
   * `internal/server/swagger.go`
-  * `docs/http-client/hospital.http`
-  * `docs/http-client/bpjs.http`
-  * `docs/http-client/insurer.http`
-  * `docs/http-client/bruno/bruno.json`
-  * `docs/FRONTEND_HANDOFF.md`
+  * `Docs/http-client/hospital.http`
+  * `Docs/http-client/bpjs.http`
+  * `Docs/http-client/insurer.http`
+  * `Docs/http-client/bruno/bruno.json`
+  * `Docs/FRONTEND_HANDOFF.md`
 * **Fitur:**
-  * Endpoint `GET /swagger/` dan `GET /swagger/openapi.yaml` terpasang di ketiga service (`:8081`, `:8082`, `:8083`), menampilkan UI Swagger interaktif tanpa ketergantungan cloud pihak ketiga.
+  * Endpoint `GET /swagger/` dan `GET /swagger/openapi.yaml` terpasang di ketiga service (`:8081`, `:8082`, `:8083`). OpenAPI YAML dilayani lokal; halaman UI saat ini memuat CSS/JavaScript Swagger UI dari unpkg CDN sehingga tampilan interaktif memerlukan akses internet.
   * Koleksi file `.http` lokal siap pakai untuk VS Code REST Client atau JetBrains HTTP Client.
   * Dokumen handoff frontend komprehensif memuat enum, format response envelope, daftar kredensial login, dan alur integrasi end-to-end.
 
@@ -144,9 +144,23 @@ sequenceDiagram
 
 ## 5. Verifikasi dan Pengujian
 
-Unit test domain logic dan kalkulasi adjudikasi telah ditambahkan di:
-`internal/server/adjudication_test.go`
-* Validasi perhitungan potongan non-cover dan dampak ekses pasien (Rp 72,5 juta - Rp 2,5 juta = Rp 70 juta disetujui; ekses pasien Rp 15 juta + Rp 2,5 juta = Rp 17,5 juta).
-* Validasi rasio kover terhadap total tagihan (56,0%).
-* Validasi penyerapan sisa pembulatan pada rekonsiliasi ekses split bill.
-* Validasi enum status keputusan (`APPROVED`, `REVISION_REQUIRED`, `REJECTED`).
+Unit test kalkulasi split bill dan adjudikasi tersedia di `internal/server/splitbill_test.go` dan `internal/server/adjudication_test.go`. Test lintas-service di `internal/server/e2e_test.go` mencakup:
+
+* Startup dan health check ketiga API, termasuk Swagger UI dan OpenAPI YAML.
+* OpenAPI YAML mencakup seluruh route API terdaftar; endpoint baca file upload juga didokumentasikan.
+* Swagger mengembalikan error eksplisit jika file spesifikasi tidak tersedia, bukan dokumen kosong yang tampak sukses.
+* Alur CoB: login, pasien/kasus, upload dokumen, split bill, dispatcher, adjudikasi BPJS dan insurer, callback, notifikasi/dashboard revisi, resubmit, invoice, dan pelunasan.
+* Alur Non-CoB: hanya membuat/mengirim subklaim BPJS, termasuk permintaan revisi dan resubmit.
+
+Validasi yang dijalankan:
+
+```powershell
+go test ./...
+go vet ./...
+docker compose up --build -d
+$env:KAPJ_E2E = "1"
+go test ./internal/server -run '^TestE2ECoBRevisionAndNonCoB$' -count=1 -v
+docker compose down
+```
+
+Cold start dan E2E berhasil diverifikasi menggunakan project Compose terisolasi dengan database baru; volume project lokal yang mungkin berisi data tidak dihapus. Test E2E membuat data simulasi pada database project yang sedang diuji. Frontend dapat memakai base URL dan akun demo di [Frontend Handoff](../FRONTEND_HANDOFF.md); frontend Next.js sendiri tidak termasuk repo ini.

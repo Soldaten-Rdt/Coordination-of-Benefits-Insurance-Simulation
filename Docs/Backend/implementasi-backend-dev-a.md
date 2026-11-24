@@ -4,7 +4,7 @@
 > **Cakupan:** Fase 0, Fase 1, dan Fase 3 bagian Dev A  
 > **Belum termasuk:** pekerjaan Dev B serta Fase 4 yang menunggu integrasi bersama
 
-Dokumen ini menjelaskan kode backend yang sudah ditambahkan, cara menjalankan dan mengujinya, kontrak API yang tersedia, serta bagian yang belum selesai. Dokumen ini menjadi referensi utama implementasi; [infografik PNG](./implementasi-backend-dev-a.png) tersedia sebagai ringkasan visual.
+Dokumen ini adalah snapshot historis cakupan Dev A, bukan status keseluruhan backend saat ini. Pekerjaan Dev B dan Fase 4 yang telah dikerjakan setelah snapshot ini dirangkum dalam [Implementasi Backend Dev B](./implementasi-backend-dev-b.md) dan status proyek terkini di [README](../../README.md). [Infografik PNG](./implementasi-backend-dev-a.png) tersedia sebagai ringkasan visual cakupan Dev A.
 
 ## 1. Ringkasan
 

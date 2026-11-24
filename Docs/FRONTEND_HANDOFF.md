@@ -15,6 +15,8 @@
 | **Asuransi Swasta** | `8083` | `http://localhost:8083` | `http://localhost:8083/swagger/` | Portal Adjudikator Asuransi Tambahan (Sekunder CoB) |
 
 > **CORS Policy:** Ketiga service Go telah mengizinkan origin frontend `http://localhost:3001` (Hospital Web), `http://localhost:3002` (BPJS Web), dan `http://localhost:3003` (Insurer Web) dengan header `Authorization, Content-Type, X-KAPJ-Service-Key, X-KAPJ-Source-Node`.
+>
+> Spesifikasi OpenAPI di `/swagger/openapi.yaml` dilayani lokal. Halaman Swagger UI memuat aset CSS/JavaScript dari unpkg CDN, jadi UI interaktif memerlukan internet; frontend juga dapat memakai file OpenAPI lokal dan koleksi REST client.
 
 ---
 
@@ -179,8 +181,26 @@ Jika request tidak memenuhi validasi form atau prasyarat bisnis:
   * Hospital API: [http://localhost:8081/swagger/](http://localhost:8081/swagger/)
   * BPJS API: [http://localhost:8082/swagger/](http://localhost:8082/swagger/)
   * Insurer API: [http://localhost:8083/swagger/](http://localhost:8083/swagger/)
-* **VS Code / JetBrains REST Client:** Gunakan file `.http` di folder `docs/http-client/`:
+* **VS Code / JetBrains REST Client:** Gunakan file `.http` di folder `Docs/http-client/`:
   * `hospital.http`
   * `bpjs.http`
   * `insurer.http`
-* **Bruno Offline API Collection:** Buka folder `docs/http-client/bruno/` pada aplikasi Bruno.
+* **Bruno API Collection:** Buka folder `Docs/http-client/bruno/` pada aplikasi Bruno.
+
+## 7. Validasi Backend Sebelum Integrasi
+
+Jalankan unit test dan static analysis dari root repository:
+
+```powershell
+go test ./...
+go vet ./...
+```
+
+Dengan ketiga API berjalan melalui Docker Compose, jalankan test lintas-service:
+
+```powershell
+$env:KAPJ_E2E = "1"
+go test ./internal/server -run '^TestE2ECoBRevisionAndNonCoB$' -count=1 -v
+```
+
+Test E2E mencakup alur CoB sampai lunas, permintaan revisi dan resubmit, validasi dokumen wajib, serta Non-CoB yang hanya dikirim ke BPJS. Test membuat pasien, kasus, transaksi, notifikasi, dan file simulasi pada database/volume yang sedang aktif; gunakan database disposable bila ingin menghindari data uji tersimpan.
