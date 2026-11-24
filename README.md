@@ -179,9 +179,9 @@ kapj-flow-simulator/
 
 **Universitas Gadjah Mada Yogyakarta — 2026**
 
-1. **Dhimas Early Oceandy** — `24/533508/PA/22584`
-2. **Rafael Mahardika Arya Dewamurti** — `24/536279/PA/22755`
-3. **Bobby Rahman Hartanto** — `24/539383/PA/22903`
-4. **Fahmi Abdillah Zain** — `24/539422/PA/22904`
-5. **Muhammad Dhafin Alfeizar Gandhang** — `24/539735/PA/22916`
-6. **Raditya Nathaniel Nugroho** — `24/543188/PA/23069`
+1. **Dhimas Early Oceandy** — `24/533508/PA/22584` *(Frontend)*
+2. **Rafael Mahardika Arya Dewamurti** — `24/536279/PA/22755` *(UI/UX)*
+3. **Bobby Rahman Hartanto** — `24/539383/PA/22903` *(Frontend)*
+4. **Fahmi Abdillah Zain** — `24/539422/PA/22904` *(Backend)*
+5. **Muhammad Dhafin Alfeizar Gandhang** — `24/539735/PA/22916` *(Frontend)*
+6. **Raditya Nathaniel Nugroho** — `24/543188/PA/23069` *(Backend)*
