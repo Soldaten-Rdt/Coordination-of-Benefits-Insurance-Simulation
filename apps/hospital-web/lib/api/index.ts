@@ -12,3 +12,4 @@ export {
   getDashboardActivities,
   getDashboardSummary,
 } from "./dashboard";
+export { getPatients, getPatientSummary } from "./patients";

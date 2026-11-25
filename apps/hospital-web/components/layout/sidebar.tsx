@@ -59,6 +59,9 @@ function SidebarBody({
   const router = useRouter();
   const [menuOpen, setMenuOpen] = React.useState(false);
 
+  const isPatientsRoute =
+    pathname === "/patients" || pathname.startsWith("/patients/");
+
   const displayName = user?.full_name || "Siti Rahmawati, S.Kep";
   const displayRole = user?.role_title
     ? user.role_title.includes("Admin Billing")
@@ -113,68 +116,124 @@ function SidebarBody({
       </div>
 
       {/* c. Menu navigasi */}
-      <nav
-        aria-label="Navigasi utama"
-        className="mt-[12px] flex-1 space-y-[4px] overflow-y-auto px-[10px]"
-      >
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const badgeValue =
-            item.href === "/notifications" ? notificationCount : item.badge;
+      {isPatientsRoute ? (
+        <nav
+          aria-label="Navigasi utama"
+          className="mt-[18px] flex-1 space-y-[14px] overflow-y-auto px-[12px]"
+        >
+          {NAV_ITEMS.map((item) => {
+            const isActive =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const badgeValue =
+              item.href === "/notifications" ? notificationCount : item.badge;
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "flex h-[32px] items-center gap-[9px] rounded-[6px] px-[10px] text-[11.5px] transition-colors",
-                isActive
-                  ? "bg-[#154B6B] font-bold text-white"
-                  : "font-medium text-[#5B6B7B] hover:bg-[#EAF0FB]/70 hover:text-[#0B3A5B]"
-              )}
-            >
-              <Icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
                 className={cn(
-                  "h-[15px] w-[15px] shrink-0",
-                  isActive ? "text-white" : "text-[#5B6B7B]"
+                  "flex items-center justify-between rounded-[6px] transition-colors",
+                  isActive
+                    ? "h-[34px] bg-[#154B6B] px-[12px] text-[15px] font-bold text-white"
+                    : "px-[8px] py-[2px] text-[11.5px] font-medium text-[#0B3A5B] hover:text-[#154B6B]"
                 )}
-                strokeWidth={1.8}
-              />
-              <span className="truncate">{item.label}</span>
-              {badgeValue !== undefined && badgeValue > 0 && (
-                <span className="ml-auto flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#D0214F] px-[4px] text-[9px] font-bold leading-none text-white">
-                  {badgeValue}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
+              >
+                <span className="truncate">{item.label}</span>
+                {badgeValue !== undefined && badgeValue > 0 && (
+                  <span className="ml-2 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#D0214F] px-[4px] text-[9px] font-bold leading-none text-white">
+                    {badgeValue}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : (
+        <nav
+          aria-label="Navigasi utama"
+          className="mt-[12px] flex-1 space-y-[4px] overflow-y-auto px-[10px]"
+        >
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const badgeValue =
+              item.href === "/notifications" ? notificationCount : item.badge;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex h-[32px] items-center gap-[9px] rounded-[6px] px-[10px] text-[11.5px] transition-colors",
+                  isActive
+                    ? "bg-[#154B6B] font-bold text-white"
+                    : "font-medium text-[#5B6B7B] hover:bg-[#EAF0FB]/70 hover:text-[#0B3A5B]"
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-[15px] w-[15px] shrink-0",
+                    isActive ? "text-white" : "text-[#5B6B7B]"
+                  )}
+                  strokeWidth={1.8}
+                />
+                <span className="truncate">{item.label}</span>
+                {badgeValue !== undefined && badgeValue > 0 && (
+                  <span className="ml-auto flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#D0214F] px-[4px] text-[9px] font-bold leading-none text-white">
+                    {badgeValue}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
       {/* d. Item bawah: Pengaturan Akun & Bantuan */}
-      <div className="mt-auto space-y-[2px] px-[10px] pb-[10px] pt-[12px]">
-        <button
-          type="button"
-          onClick={() => setMenuOpen((prev) => !prev)}
-          className="flex h-[30px] w-full items-center gap-[9px] rounded-[6px] px-[10px] text-[11px] font-medium text-[#5B6B7B] transition-colors hover:bg-[#EAF0FB]/70 hover:text-[#0B3A5B] cursor-pointer"
-        >
-          <Settings className="h-[14px] w-[14px] shrink-0" strokeWidth={1.8} />
-          <span>Pengaturan Akun</span>
-        </button>
-        <button
-          type="button"
-          className="flex h-[30px] w-full items-center gap-[9px] rounded-[6px] px-[10px] text-[11px] font-medium text-[#5B6B7B] transition-colors hover:bg-[#EAF0FB]/70 hover:text-[#0B3A5B] cursor-pointer"
-        >
-          <HelpCircle
-            className="h-[14px] w-[14px] shrink-0"
-            strokeWidth={1.8}
-          />
-          <span>Bantuan</span>
-        </button>
-      </div>
+      {isPatientsRoute ? (
+        <div className="mt-auto border-t border-[#E3EAF5] px-[18px] py-[12px] space-y-[10px]">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className="block w-full text-left text-[11.5px] font-medium text-[#0B3A5B] transition-colors hover:text-[#154B6B] cursor-pointer"
+          >
+            Pengaturan Akun
+          </button>
+          <button
+            type="button"
+            className="block w-full text-left text-[11.5px] font-medium text-[#0B3A5B] transition-colors hover:text-[#154B6B] cursor-pointer"
+          >
+            Bantuan
+          </button>
+        </div>
+      ) : (
+        <div className="mt-auto space-y-[2px] px-[10px] pb-[10px] pt-[12px]">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className="flex h-[30px] w-full items-center gap-[9px] rounded-[6px] px-[10px] text-[11px] font-medium text-[#5B6B7B] transition-colors hover:bg-[#EAF0FB]/70 hover:text-[#0B3A5B] cursor-pointer"
+          >
+            <Settings
+              className="h-[14px] w-[14px] shrink-0"
+              strokeWidth={1.8}
+            />
+            <span>Pengaturan Akun</span>
+          </button>
+          <button
+            type="button"
+            className="flex h-[30px] w-full items-center gap-[9px] rounded-[6px] px-[10px] text-[11px] font-medium text-[#5B6B7B] transition-colors hover:bg-[#EAF0FB]/70 hover:text-[#0B3A5B] cursor-pointer"
+          >
+            <HelpCircle
+              className="h-[14px] w-[14px] shrink-0"
+              strokeWidth={1.8}
+            />
+            <span>Bantuan</span>
+          </button>
+        </div>
+      )}
 
       {/* e. Garis pemisah tipis + Profil */}
       <div className="relative border-t border-[#E3EAF5] px-[12px] py-[11px]">

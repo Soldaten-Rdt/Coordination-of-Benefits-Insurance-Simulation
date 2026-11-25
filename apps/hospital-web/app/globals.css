@@ -15,6 +15,8 @@
   --pink-bg: #fce4ea;
   --blue-soft: #dce8f9;
   --blue-mid: #1f5f8b;
+  --green-text: #1e9e6a;
+  --orange-text: #d9731a;
   --shadow-card: 0 4px 18px rgba(11, 58, 91, 0.06);
 }
 
@@ -32,6 +34,8 @@
   --color-pink-bg: #fce4ea;
   --color-blue-soft: #dce8f9;
   --color-blue-mid: #1f5f8b;
+  --color-green-text: #1e9e6a;
+  --color-orange-text: #d9731a;
 
   --font-sans: "Plus Jakarta Sans", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
