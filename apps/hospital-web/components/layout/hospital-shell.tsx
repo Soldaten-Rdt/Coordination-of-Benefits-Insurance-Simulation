@@ -70,6 +70,14 @@ export function HospitalShell({ children }: { children: React.ReactNode }) {
       }}
     >
       <div className="min-h-screen bg-[#F6F8FE] text-[#0B3A5B]">
+        <Topbar
+          onOpenMobileMenu={() => setMobileOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          simulationMode={simulationMode}
+          notificationCount={3}
+        />
+
         <Sidebar
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
@@ -77,16 +85,8 @@ export function HospitalShell({ children }: { children: React.ReactNode }) {
           notificationCount={3}
         />
 
-        <div className="flex min-h-screen flex-col lg:pl-[212px]">
-          <Topbar
-            onOpenMobileMenu={() => setMobileOpen(true)}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            simulationMode={simulationMode}
-            notificationCount={3}
-          />
-
-          <main className="flex-1 px-[18px] py-[20px] sm:px-[24px]">
+        <div className="min-h-[calc(100vh-50px)] lg:pl-[250px]">
+          <main className="px-[18px] py-[20px] sm:px-[24px]">
             <div className="mx-auto w-full max-w-[1140px]">{children}</div>
           </main>
         </div>
