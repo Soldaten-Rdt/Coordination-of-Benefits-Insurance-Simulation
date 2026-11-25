@@ -1,7 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Calculator, CheckCircle2, LockKeyhole } from "lucide-react";
+import {
+  Calculator,
+  CheckCircle2,
+  Info,
+  LockKeyhole,
+  SlidersHorizontal,
+  TableProperties,
+} from "lucide-react";
 import { Button, useToast } from "@/components/ui";
 import {
   applySplitBill,
@@ -10,7 +17,11 @@ import {
 } from "@/lib/api/cases";
 import { ApiClientError } from "@/lib/api/client";
 import type { CaseDetail, SplitBillInput, SplitBillResult } from "@/types/case";
-import { formatRupiah, Panel, StatusBadge } from "./case-ui";
+import {
+  formatRupiah,
+  StatusBadge,
+  subclaimStatusLabel,
+} from "./case-ui";
 
 export function SplitBillPanel({
   caseData,
@@ -25,12 +36,13 @@ export function SplitBillPanel({
     caseData.split_bill?.split_method ?? "PERCENTAGE"
   );
   const [preset, setPreset] = React.useState(
-    caseData.split_bill?.preset_name ?? "ARBITRARY_COB_30_58_12"
+    caseData.split_bill?.preset_name ??
+      (isNonCob ? "BPJS_70_PATIENT_30" : "ARBITRARY_COB_30_58_12")
   );
   const [percent, setPercent] = React.useState({
-    bpjs: caseData.split_bill?.bpjs_percent ?? 30,
+    bpjs: caseData.split_bill?.bpjs_percent ?? (isNonCob ? 70 : 30),
     insurer: isNonCob ? 0 : (caseData.split_bill?.insurer_percent ?? 58),
-    patient: caseData.split_bill?.patient_percent ?? 12,
+    patient: caseData.split_bill?.patient_percent ?? (isNonCob ? 30 : 12),
   });
   const [nominal, setNominal] = React.useState({
     bpjs: caseData.split_bill?.bpjs_estimated ?? 0,
@@ -117,9 +129,11 @@ export function SplitBillPanel({
             custom_bpjs_amount: Number(nominal.bpjs),
             custom_insurer_amount: isNonCob ? 0 : Number(nominal.insurer),
           };
+    let saved = false;
     try {
       const response = await calculateSplitBill(caseData.id, body);
       setResult(response.data);
+      saved = true;
       await onRefresh();
       toast({
         title: "Simulasi split bill dihitung",
@@ -133,8 +147,15 @@ export function SplitBillPanel({
           : cause instanceof Error
             ? cause.message
             : "Simulasi gagal dihitung.";
-      setError(message);
-      toast({ title: "Split bill gagal dihitung", description: message, variant: "error" });
+      const description = saved
+        ? `Simulasi tersimpan, tetapi detail kasus gagal diperbarui: ${message}`
+        : message;
+      setError(description);
+      toast({
+        title: saved ? "Simulasi tersimpan" : "Split bill gagal dihitung",
+        description,
+        variant: "error",
+      });
     } finally {
       setCalculating(false);
     }
@@ -143,8 +164,13 @@ export function SplitBillPanel({
   const handleApply = async () => {
     setApplying(true);
     setError("");
+    let applied = false;
     try {
       await applySplitBill(caseData.id);
+      applied = true;
+      setResult((current) =>
+        current ? { ...current, is_applied: true } : current
+      );
       await onRefresh();
       toast({
         title: "Split bill diterapkan",
@@ -152,85 +178,100 @@ export function SplitBillPanel({
         variant: "success",
       });
     } catch (cause: unknown) {
-      const message =
+      const failure =
         cause instanceof Error ? cause.message : "Alokasi gagal diterapkan.";
+      const message = applied
+        ? `Alokasi tersimpan, tetapi detail kasus gagal diperbarui: ${failure}`
+        : failure;
       setError(message);
-      toast({ title: "Gagal menerapkan alokasi", description: message, variant: "error" });
+      toast({
+        title: applied ? "Alokasi tersimpan" : "Gagal menerapkan alokasi",
+        description: message,
+        variant: "error",
+      });
     } finally {
       setApplying(false);
     }
   };
 
+  const bpjsClaim = caseData.subclaims.find(
+    (claim) => claim.payer_type === "BPJS"
+  );
+  const insurerClaim = caseData.subclaims.find(
+    (claim) => claim.payer_type === "PRIVATE_INSURANCE"
+  );
+  const allocationTotal = result
+    ? result.bpjs_estimated +
+      result.insurer_estimated +
+      result.patient_estimated
+    : 0;
+
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-3">
-        <AmountCard label="Total tagihan RS" value={formatRupiah(total)} />
-        <AmountCard
-          label="Tarif referensi INA-CBG"
-          value={formatRupiah(caseData.ina_cbg_tariff)}
-        />
-        <div className="flex items-center gap-2 rounded-lg border border-[#E3EAF5] bg-[#F8FAFD] px-4 py-3">
-          {isNonCob ? (
-            <LockKeyhole className="h-4 w-4 text-[#52758C]" />
-          ) : (
-            <CheckCircle2 className="h-4 w-4 text-emerald-700" />
-          )}
-          <div>
-            <div className="text-[9px] font-bold uppercase text-[#8293A2]">
-              Mode penjamin
-            </div>
-            <div className="mt-1 text-xs font-extrabold text-[#234B66]">
-              {isNonCob ? "NON_COB · BPJS saja" : "COB · BPJS + swasta"}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)]">
-        <Panel
-          title="Kalkulator pembagian biaya"
-          description="Hasil perhitungan akan disimpan dan divalidasi oleh backend."
-        >
-          <form onSubmit={handleCalculate} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold text-[#34566E]">
-                  Metode pembagian
-                </label>
-                <select
-                  value={method}
-                  onChange={(event) =>
-                    setMethod(event.target.value as typeof method)
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)]">
+        <section className="overflow-hidden rounded-xl border border-[#E3EAF5] bg-white shadow-[0_4px_18px_rgba(11,58,91,0.04)]">
+          <header className="flex items-center gap-2 border-b border-[#E3EAF5] px-4 py-3.5">
+            <SlidersHorizontal className="h-4 w-4 text-[#315D7A]" />
+            <h2 className="text-xs font-extrabold text-[#0B3A5B]">
+              Parameter Tagihan &amp; Skenario Simulasi
+            </h2>
+          </header>
+          <form
+            id="split-bill-calculation-form"
+            onSubmit={handleCalculate}
+            className="space-y-3.5 p-4"
+          >
+            <div>
+              <label className="mb-1.5 block text-[10px] font-bold text-[#34566E]">
+                Skenario Regulasi Aktif
+              </label>
+              <select
+                value={method === "PERCENTAGE" ? preset : "CUSTOM_NOMINAL"}
+                onChange={(event) => {
+                  if (event.target.value === "CUSTOM_NOMINAL") {
+                    setMethod("NOMINAL");
+                  } else {
+                    setMethod("PERCENTAGE");
+                    setPresetValues(event.target.value);
                   }
-                  className="h-10 w-full rounded-lg border border-[#DCE5F0] bg-white px-3 text-xs text-[#0B3A5B]"
-                >
-                  <option value="PERCENTAGE">Persentase</option>
-                  <option value="NOMINAL">Nominal manual</option>
-                </select>
+                }}
+                className="h-9 w-full rounded-lg border border-[#DCE5F0] bg-[#F8FAFD] px-3 text-[10px] text-[#34566E]"
+              >
+                <option value="ARBITRARY_COB_30_58_12">
+                  Preset COB 30% / 58% / 12%
+                </option>
+                <option value="BPJS_70_PATIENT_30">BPJS 70% · Pasien 30%</option>
+                {!isNonCob && <option value="EQUAL_COB">CoB 50% · 30% · 20%</option>}
+                <option value="CUSTOM">Persentase kustom</option>
+                <option value="CUSTOM_NOMINAL">Nominal manual</option>
+              </select>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <ReadOnlyAmount
+                label="Total Tagihan RS (Real Bill)"
+                value={formatRupiah(total)}
+                accent
+              />
+              <ReadOnlyAmount
+                label="Tarif JKN / INA-CBGs Referensi"
+                value={formatRupiah(caseData.ina_cbg_tariff)}
+              />
+            </div>
+
+            <div className="flex items-start gap-2 rounded-lg border border-[#DDE8FA] bg-[#EAF1FE] px-3 py-2.5">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#315D7A]" />
+              <div className="text-[9px] leading-4 text-[#49667B]">
+                <span className="font-bold text-[#234B66]">
+                  Batas maksimum total alokasi: {formatRupiah(total)}.
+                </span>{" "}
+                Porsi penjamin tidak dapat melebihi tagihan; sisa menjadi
+                tanggungan pasien.
               </div>
-              {method === "PERCENTAGE" && (
-                <div>
-                  <label className="mb-1.5 block text-[11px] font-bold text-[#34566E]">
-                    Preset pembagian
-                  </label>
-                  <select
-                    value={preset}
-                    onChange={(event) => setPresetValues(event.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#DCE5F0] bg-white px-3 text-xs text-[#0B3A5B]"
-                  >
-                    <option value="ARBITRARY_COB_30_58_12">COB 30 / 58 / 12</option>
-                    <option value="BPJS_70_PATIENT_30">BPJS 70 / Pasien 30</option>
-                    {!isNonCob && (
-                      <option value="EQUAL_COB">COB 50 / 30 / 20</option>
-                    )}
-                    <option value="CUSTOM">Kustom</option>
-                  </select>
-                </div>
-              )}
             </div>
 
             {method === "PERCENTAGE" ? (
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-3">
                 <PercentField
                   label="BPJS (%)"
                   value={percent.bpjs}
@@ -258,7 +299,7 @@ export function SplitBillPanel({
                 />
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <MoneyField
                   label="Alokasi BPJS (Rp)"
                   value={nominal.bpjs}
@@ -274,156 +315,469 @@ export function SplitBillPanel({
                     setNominal((current) => ({ ...current, insurer: value }))
                   }
                 />
-                <p className="text-[10px] leading-4 text-[#708597] sm:col-span-2">
-                  Sisa dari total tagihan otomatis menjadi porsi pasien; jumlah
-                  penjamin tidak boleh melebihi total.
-                </p>
               </div>
             )}
 
             {isNonCob && (
-              <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-[10px] leading-4 text-blue-900">
-                Mode NON_COB mengunci alokasi asuransi swasta menjadi Rp 0 dan
-                tidak membuat subklaim asuransi.
+              <div className="flex items-center gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-[9px] leading-4 text-blue-900">
+                <LockKeyhole className="h-3.5 w-3.5 shrink-0" />
+                Mode NON_COB mengunci alokasi asuransi swasta menjadi Rp 0.
               </div>
             )}
             {loadError && (
-              <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[11px] text-rose-800">
+              <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[10px] text-rose-800">
                 {loadError}
               </div>
             )}
             {error && (
-              <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[11px] text-rose-800">
+              <div role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-[10px] text-rose-800">
                 {error}
               </div>
             )}
-            <div className="flex flex-wrap gap-2">
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E7EDF4] pt-3">
+              <div className="inline-flex items-center gap-1.5 text-[9px] font-semibold text-emerald-700">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Data tagihan tersinkron dari kasus
+              </div>
               <Button
                 type="submit"
+                size="sm"
                 isLoading={calculating}
                 leftIcon={<Calculator className="h-3.5 w-3.5" />}
               >
-                Hitung simulasi
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!result || result.is_applied}
-                isLoading={applying}
-                onClick={() => void handleApply()}
-              >
-                Terapkan alokasi
+                Hitung ulang alokasi
               </Button>
             </div>
           </form>
-        </Panel>
+        </section>
 
-        <Panel
-          title="Estimasi alokasi"
-          description="Angka ini menjadi resmi setelah kalkulasi backend diterapkan."
-          action={
-            result?.is_applied ? (
-              <StatusBadge status="APPROVED">Sudah diterapkan</StatusBadge>
-            ) : null
-          }
-        >
-          {!result ? (
-            <div className="py-8 text-center text-xs text-[#71869A]">
-              Jalankan kalkulasi untuk melihat pembagian biaya.
+        <section className="overflow-hidden rounded-xl border border-[#E3EAF5] bg-white shadow-[0_4px_18px_rgba(11,58,91,0.04)]">
+          <header className="flex items-center gap-2 border-b border-[#E3EAF5] px-4 py-3.5">
+            <LockKeyhole className="h-4 w-4 text-[#315D7A]" />
+            <h2 className="text-xs font-extrabold text-[#0B3A5B]">
+              Aturan Formula Skenario Diterapkan
+            </h2>
+          </header>
+          <div className="space-y-2 p-4">
+            <FormulaRule
+              number="1"
+              title="Formula BPJS Kesehatan"
+              value={
+                result
+                  ? formatRupiah(result.bpjs_estimated)
+                  : "Mengikuti alokasi"
+              }
+              detail={
+                method === "PERCENTAGE"
+                  ? `Porsi ${percent.bpjs}% × total tagihan ${formatRupiah(total)}.`
+                  : "Nominal mengikuti nilai yang dimasukkan; backend memvalidasi batas tagihan."
+              }
+              tone="blue"
+            />
+            <FormulaRule
+              number="2"
+              title="Porsi Asuransi Swasta"
+              value={
+                isNonCob
+                  ? "Rp 0"
+                  : result
+                    ? formatRupiah(result.insurer_estimated)
+                    : "Mengikuti alokasi"
+              }
+              detail={
+                isNonCob
+                  ? "Dikunci Rp 0 pada mode NON_COB."
+                  : "Dihitung sesuai alokasi dan tidak boleh membuat total melebihi tagihan."
+              }
+              tone="rose"
+            />
+            <FormulaRule
+              number="3"
+              title="Tanggungan Pasien"
+              value={
+                result
+                  ? formatRupiah(result.patient_estimated)
+                  : "Sisa tagihan"
+              }
+              detail="Sisa setelah alokasi BPJS dan asuransi swasta diperhitungkan."
+              tone="amber"
+            />
+            <div className="flex gap-2 rounded-lg border border-[#DDE8FA] bg-[#EAF1FE] px-3 py-2.5 text-[9px] leading-4 text-[#49667B]">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#315D7A]" />
+              <p>
+                Tarif INA-CBG ditampilkan sebagai referensi. Nilai alokasi
+                final dihitung dan divalidasi oleh layanan backend sesuai
+                skenario yang dipilih.
+              </p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <Allocation
-                  label="BPJS Kesehatan"
-                  amount={result.bpjs_estimated}
-                  percent={result.bpjs_percent}
-                  color="bg-[#1B6286]"
-                />
-                <Allocation
-                  label="Asuransi swasta"
-                  amount={result.insurer_estimated}
-                  percent={result.insurer_percent}
-                  color="bg-[#3B8A87]"
-                  muted={isNonCob}
-                />
-                <Allocation
-                  label="Pasien / keluarga"
-                  amount={result.patient_estimated}
-                  percent={result.patient_percent}
-                  color="bg-[#E8A24D]"
-                />
-              </div>
-              <div className="border-t border-[#E7EDF4] pt-3">
-                <div className="flex justify-between text-[10px] text-[#71869A]">
-                  <span>Total alokasi</span>
-                  <span className="font-extrabold text-[#0B3A5B]">
-                    {formatRupiah(
-                      result.bpjs_estimated +
-                        result.insurer_estimated +
-                        result.patient_estimated
-                    )}
-                  </span>
-                </div>
-                <div className="mt-1 text-[9px] text-[#8293A2]">
-                  Metode: {result.split_method === "NOMINAL" ? "Nominal" : "Persentase"}
-                </div>
-              </div>
-            </div>
-          )}
-        </Panel>
+          </div>
+        </section>
       </div>
 
-      {result?.is_applied && caseData.bill_items.some((item) => item.bpjs_portion !== undefined) && (
-        <Panel
-          title="Distribusi per item tagihan"
-          description="Rincian pembagian tiap item setelah alokasi diterapkan."
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-[10px]">
-              <thead className="text-[9px] uppercase tracking-wide text-[#8293A2]">
-                <tr>
-                  <th className="pb-2 pr-3">Item</th>
-                  <th className="px-2 pb-2 text-right">BPJS</th>
-                  {!isNonCob && <th className="px-2 pb-2 text-right">Swasta</th>}
-                  <th className="pb-2 pl-2 text-right">Pasien</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EEF2F6]">
-                {caseData.bill_items.map((item) => (
-                  <tr key={item.id ?? item.description}>
-                    <td className="py-2.5 pr-3 font-semibold text-[#34566E]">
-                      {item.description}
-                    </td>
-                    <td className="px-2 py-2.5 text-right">
-                      {formatRupiah(item.bpjs_portion ?? 0)}
-                    </td>
-                    {!isNonCob && (
-                      <td className="px-2 py-2.5 text-right">
-                        {formatRupiah(item.insurer_portion ?? 0)}
-                      </td>
-                    )}
-                    <td className="py-2.5 pl-2 text-right">
-                      {formatRupiah(item.patient_portion ?? 0)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <section className="overflow-hidden rounded-xl border border-[#E3EAF5] bg-white shadow-[0_4px_18px_rgba(11,58,91,0.04)]">
+        <header className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+          <h2 className="text-xs font-extrabold text-[#0B3A5B]">
+            Visualisasi Proporsi Alokasi Tagihan
+          </h2>
+          {result?.is_applied && (
+            <StatusBadge status="APPROVED">Alokasi diterapkan</StatusBadge>
+          )}
+        </header>
+        <div className="px-4 pb-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {result ? (
+                <>
+                  <Legend
+                    color="bg-[#0B3A5B]"
+                    label={`BPJS Kesehatan (${result.bpjs_percent.toFixed(0)}%)`}
+                  />
+                  {!isNonCob && (
+                    <Legend
+                      color="bg-[#C51F53]"
+                      label={`Asuransi Swasta (${result.insurer_percent.toFixed(0)}%)`}
+                    />
+                  )}
+                  <Legend
+                    color="bg-[#E18C26]"
+                    label={`Pasien / Co-Pay (${result.patient_percent.toFixed(0)}%)`}
+                  />
+                </>
+              ) : (
+                <span className="text-[9px] text-[#8293A2]">
+                  Hitung simulasi untuk melihat proporsi.
+                </span>
+              )}
+            </div>
+            <span className="text-[9px] font-bold text-[#60798D]">
+              Total: {formatRupiah(result?.total_bill ?? total)}
+            </span>
           </div>
-        </Panel>
-      )}
+          <div
+            className="flex h-7 overflow-hidden rounded-md bg-[#EEF2F8]"
+            aria-label={
+              result
+                ? `Alokasi BPJS ${result.bpjs_percent}%, asuransi ${result.insurer_percent}%, pasien ${result.patient_percent}%`
+                : "Proporsi alokasi belum dihitung"
+            }
+          >
+            {result &&
+              [
+                {
+                  label: "BPJS",
+                  percent: result.bpjs_percent,
+                  amount: result.bpjs_estimated,
+                  color: "bg-[#0B3A5B]",
+                },
+                {
+                  label: "Asuransi",
+                  percent: result.insurer_percent,
+                  amount: result.insurer_estimated,
+                  color: "bg-[#C51F53]",
+                },
+                {
+                  label: "Pasien",
+                  percent: result.patient_percent,
+                  amount: result.patient_estimated,
+                  color: "bg-[#E18C26]",
+                },
+              ]
+                .filter((item) => item.percent > 0)
+                .map((item) => (
+                  <div
+                    key={item.label}
+                    className={`flex min-w-0 items-center justify-center truncate px-1 text-[8px] font-extrabold text-white ${item.color}`}
+                    style={{ width: `${item.percent}%` }}
+                    title={`${item.label}: ${formatRupiah(item.amount)}`}
+                  >
+                    {item.percent >= 10
+                      ? `${item.percent.toFixed(0)}% (${formatRupiah(item.amount)})`
+                      : ""}
+                  </div>
+                ))}
+          </div>
+
+          <div className="mt-3 grid gap-2 md:grid-cols-3">
+            <PayerAllocationCard
+              label="Penjamin Primer"
+              payer="BPJS Kesehatan"
+              amount={result ? formatRupiah(result.bpjs_estimated) : "Belum dihitung"}
+              status={
+                bpjsClaim
+                  ? subclaimStatusLabel(bpjsClaim.status)
+                  : result?.is_applied
+                    ? "Draft"
+                    : "Menunggu simulasi"
+              }
+              tone="blue"
+            />
+            {!isNonCob && (
+              <PayerAllocationCard
+                label="Penjamin Sekunder"
+                payer={insurerClaim?.payer_name ?? "Asuransi Swasta"}
+                amount={
+                  result
+                    ? formatRupiah(result.insurer_estimated)
+                    : "Belum dihitung"
+                }
+                status={
+                  insurerClaim
+                    ? subclaimStatusLabel(insurerClaim.status)
+                    : result?.is_applied
+                      ? "Draft"
+                      : "Menunggu simulasi"
+                }
+                tone="rose"
+              />
+            )}
+            <PayerAllocationCard
+              label="Tanggungan Pribadi"
+              payer="Tanggungan Pasien (Co-Pay)"
+              amount={
+                result
+                  ? formatRupiah(result.patient_estimated)
+                  : "Belum dihitung"
+              }
+              status={result ? "Terhitung" : "Menunggu simulasi"}
+              tone="amber"
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-[#EAF1FE] px-3 py-2 text-[9px]">
+            <span className="font-bold text-[#34566E]">
+              Total akumulasi pembagian biaya
+            </span>
+            <span className="font-extrabold text-[#0B3A5B]">
+              {result ? formatRupiah(allocationTotal) : "Belum dihitung"}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-[#E3EAF5] bg-white shadow-[0_4px_18px_rgba(11,58,91,0.04)]">
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E3EAF5] px-4 py-3.5">
+          <div className="flex items-center gap-2">
+            <TableProperties className="h-4 w-4 text-[#315D7A]" />
+            <h2 className="text-xs font-extrabold text-[#0B3A5B]">
+              Tabel Rincian Alokasi Komponen Biaya
+            </h2>
+          </div>
+          <span className="text-[9px] text-[#71869A]">Mata uang: IDR (Rupiah)</span>
+        </header>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] border-collapse text-left text-[9px]">
+            <thead className="bg-[#F7F9FC] text-[8px] font-extrabold uppercase tracking-wide text-[#71869A]">
+              <tr>
+                <th className="px-3 py-2.5">No</th>
+                <th className="px-3 py-2.5">Komponen Tindakan &amp; Layanan Medis</th>
+                <th className="px-3 py-2.5 text-right">Total Biaya RS</th>
+                <th className="px-3 py-2.5 text-right text-[#154B6B]">Porsi BPJS</th>
+                {!isNonCob && (
+                  <th className="px-3 py-2.5 text-right text-[#C51F53]">
+                    Porsi Asuransi
+                  </th>
+                )}
+                <th className="px-3 py-2.5 text-right text-[#B45E10]">
+                  Tanggungan Pasien
+                </th>
+                <th className="px-3 py-2.5 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#EEF2F6]">
+              {caseData.bill_items.map((item, index) => (
+                <tr key={item.id ?? `${item.category}-${item.description}`}>
+                  <td className="px-3 py-3 text-[#71869A]">
+                    {String(index + 1).padStart(2, "0")}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="font-bold text-[#34566E]">
+                      {item.description}
+                    </div>
+                    <div className="mt-0.5 text-[8px] text-[#8293A2]">
+                      {item.unit_info || item.category.replaceAll("_", " ")}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-right font-semibold text-[#34566E]">
+                    {formatRupiah(item.subtotal)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-bold text-[#154B6B]">
+                    {item.bpjs_portion === undefined
+                      ? "—"
+                      : formatRupiah(item.bpjs_portion)}
+                  </td>
+                  {!isNonCob && (
+                    <td className="px-3 py-3 text-right font-bold text-[#C51F53]">
+                      {item.insurer_portion === undefined
+                        ? "—"
+                        : formatRupiah(item.insurer_portion)}
+                    </td>
+                  )}
+                  <td className="px-3 py-3 text-right font-bold text-[#B45E10]">
+                    {item.patient_portion === undefined
+                      ? "—"
+                      : formatRupiah(item.patient_portion)}
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    <StatusBadge
+                      status={result?.is_applied ? "APPROVED" : "DRAFT"}
+                    >
+                      {result?.is_applied
+                        ? "Diterapkan"
+                        : result
+                          ? "Menunggu penerapan"
+                          : "Belum dihitung"}
+                    </StatusBadge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-[#EAF1FE] font-extrabold text-[#0B3A5B]">
+              <tr>
+                <td colSpan={2} className="px-3 py-3 text-[8px] uppercase">
+                  Total akumulasi pembagian biaya
+                </td>
+                <td className="px-3 py-3 text-right">
+                  {formatRupiah(total)}
+                </td>
+                <td className="px-3 py-3 text-right">
+                  {result ? formatRupiah(result.bpjs_estimated) : "—"}
+                </td>
+                {!isNonCob && (
+                  <td className="px-3 py-3 text-right">
+                    {result ? formatRupiah(result.insurer_estimated) : "—"}
+                  </td>
+                )}
+                <td className="px-3 py-3 text-right">
+                  {result ? formatRupiah(result.patient_estimated) : "—"}
+                </td>
+                <td className="px-3 py-3 text-center">
+                  {result
+                    ? allocationTotal === result.total_bill
+                      ? "Seimbang"
+                      : "Periksa"
+                    : "—"}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div className="flex flex-col gap-3 border-t border-[#E3EAF5] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-xl text-[9px] leading-4 text-[#71869A]">
+            Hasil simulasi adalah estimasi. Terapkan alokasi untuk memperbarui
+            rincian invoice dan membuat subklaim draft melalui backend.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!result || result.is_applied}
+            isLoading={applying}
+            onClick={() => void handleApply()}
+          >
+            Perbarui rincian invoice kasus
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+function ReadOnlyAmount({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-[#E3EAF5] bg-[#F8FAFD] px-3 py-2.5">
+      <div className="text-[8px] font-bold uppercase tracking-wide text-[#8293A2]">
+        {label}
+      </div>
+      <div
+        className={`mt-1 text-[11px] font-extrabold ${
+          accent ? "text-[#C51F53]" : "text-[#154B6B]"
+        }`}
+      >
+        {value}
+      </div>
     </div>
   );
 }
 
-function AmountCard({ label, value }: { label: string; value: string }) {
+function FormulaRule({
+  number,
+  title,
+  value,
+  detail,
+  tone,
+}: {
+  number: string;
+  title: string;
+  value: string;
+  detail: string;
+  tone: "blue" | "rose" | "amber";
+}) {
+  const tones = {
+    blue: "bg-[#EAF1FE] text-[#154B6B] border-[#DDE8FA]",
+    rose: "bg-[#FCEAF0] text-[#B91D4A] border-[#F6D6E0]",
+    amber: "bg-[#FFF3DB] text-[#A65A0A] border-[#F7E5BC]",
+  };
   return (
-    <div className="rounded-lg border border-[#E3EAF5] bg-white px-4 py-3">
-      <div className="text-[9px] font-bold uppercase tracking-wide text-[#8293A2]">
-        {label}
+    <div className={`flex gap-2 rounded-lg border p-2.5 ${tones[tone]}`}>
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-current/10 text-[9px] font-extrabold">
+        {number}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+          <h3 className="text-[9px] font-extrabold">{title}</h3>
+          <span className="text-[9px] font-extrabold">{value}</span>
+        </div>
+        <p className="mt-1 text-[8px] leading-3.5 opacity-80">{detail}</p>
       </div>
-      <div className="mt-1 text-sm font-extrabold text-[#154B6B]">{value}</div>
+    </div>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-[#60798D]">
+      <span className={`h-2 w-2 rounded-sm ${color}`} />
+      {label}
+    </span>
+  );
+}
+
+function PayerAllocationCard({
+  label,
+  payer,
+  amount,
+  status,
+  tone,
+}: {
+  label: string;
+  payer: string;
+  amount: string;
+  status: string;
+  tone: "blue" | "rose" | "amber";
+}) {
+  const tones = {
+    blue: "border-t-[#154B6B]",
+    rose: "border-t-[#C51F53]",
+    amber: "border-t-[#E18C26]",
+  };
+  return (
+    <div className={`rounded-lg border border-[#E3EAF5] border-t-[3px] bg-[#F8FAFD] p-3 ${tones[tone]}`}>
+      <div className="flex flex-wrap items-center justify-between gap-1">
+        <div className="text-[8px] font-extrabold uppercase tracking-wide text-[#8293A2]">
+          {label}
+        </div>
+        <StatusBadge status={status}>{status}</StatusBadge>
+      </div>
+      <div className="mt-1.5 text-[10px] font-bold text-[#34566E]">{payer}</div>
+      <div className="mt-2 text-[11px] font-extrabold text-[#0B3A5B]">
+        {amount}
+      </div>
     </div>
   );
 }
@@ -489,39 +843,5 @@ function MoneyField({
         className="h-10 w-full rounded-lg border border-[#DCE5F0] bg-white px-3 text-xs text-[#0B3A5B] disabled:bg-slate-100"
       />
     </label>
-  );
-}
-
-function Allocation({
-  label,
-  amount,
-  percent,
-  color,
-  muted = false,
-}: {
-  label: string;
-  amount: number;
-  percent: number;
-  color: string;
-  muted?: boolean;
-}) {
-  return (
-    <div className={muted ? "opacity-55" : ""}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-bold text-[#4D687C]">{label}</span>
-        <span className="text-[10px] font-extrabold text-[#0B3A5B]">
-          {formatRupiah(amount)}
-        </span>
-      </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#ECF1F6]">
-        <div
-          className={`h-full rounded-full ${color}`}
-          style={{ width: `${Math.min(Math.max(percent, 0), 100)}%` }}
-        />
-      </div>
-      <div className="mt-1 text-right text-[9px] text-[#8293A2]">
-        {percent.toFixed(2)}%
-      </div>
-    </div>
   );
 }

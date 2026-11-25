@@ -203,14 +203,112 @@ export function InvoicePanel({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(310px,0.9fr)]">
         <Panel
-          title="Alokasi per penjamin"
-          description="Nilai persetujuan, pembayaran masuk, dan saldo sesuai catatan backend."
+          title="Invoice simulasi / rekap pembagian biaya"
+          description="Rincian tagihan dan alokasi multi-penjamin mengikuti respons backend."
         >
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <div className="rounded-lg border border-[#E6ECF3] p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <span className="inline-flex rounded-full bg-[#EAF0FB] px-2 py-1 text-[9px] font-bold text-[#315D7A]">
+                    Dokumen simulasi · {invoice.invoice_number}
+                  </span>
+                  <h3 className="mt-2 text-sm font-extrabold text-[#0B3A5B]">
+                    Komponen tagihan rumah sakit
+                  </h3>
+                  <p className="mt-1 text-[10px] text-[#71869A]">
+                    {invoice.patient.full_name} · {invoice.patient.room_info}
+                  </p>
+                </div>
+                <span className="text-[9px] font-semibold text-[#8293A2]">
+                  {invoice.bill_items.length} item
+                </span>
+              </div>
+              {invoice.bill_items.length === 0 ? (
+                <div className="py-5 text-center text-[10px] text-[#71869A]">
+                  Tidak ada item tagihan pada invoice ini.
+                </div>
+              ) : (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full min-w-[440px] text-left text-[10px]">
+                    <thead className="bg-[#EAF0FB] text-[9px] uppercase tracking-wide text-[#71869A]">
+                      <tr>
+                        <th className="px-2.5 py-2">Uraian layanan</th>
+                        <th className="px-2.5 py-2 text-right">Unit / durasi</th>
+                        <th className="px-2.5 py-2 text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#EEF2F6]">
+                      {invoice.bill_items.map((item, index) => (
+                        <tr key={item.id ?? `${item.description}-${index}`}>
+                          <td className="px-2.5 py-2.5 font-semibold text-[#34566E]">{item.description}</td>
+                          <td className="px-2.5 py-2.5 text-right text-[#71869A]">{item.unit_info || item.quantity}</td>
+                          <td className="px-2.5 py-2.5 text-right font-bold text-[#234B66]">{formatRupiah(item.subtotal)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-[#EAF0FB]">
+                        <td colSpan={2} className="px-2.5 py-2.5 text-right font-bold text-[#34566E]">Total nilai tagihan</td>
+                        <td className="px-2.5 py-2.5 text-right font-extrabold text-[#0B3A5B]">{formatRupiah(invoice.summary.total_hospital_bill)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg bg-[#F3F6FB] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-extrabold uppercase tracking-wide text-[#71869A]">
+                  Rasio pembagian alokasi
+                </span>
+                <span className="text-[9px] font-bold text-[#315D7A]">
+                  Total alokasi {formatRupiah(allocations.reduce((total, item) => total + item.amount, 0))}
+                </span>
+              </div>
+              <div className="mt-2 flex h-4 overflow-hidden rounded-md">
+                {allocations.map((allocation) => (
+                  <div
+                    key={allocation.payer_source}
+                    className={`h-full ${
+                      allocation.payer_source === "BPJS"
+                        ? "bg-[#0B3A5B]"
+                        : allocation.payer_source === "PRIVATE_INSURANCE"
+                          ? "bg-[#456D8B]"
+                          : "bg-[#E55B83]"
+                    }`}
+                    style={{ width: `${Math.min(Math.max(allocation.ratio_percent, 0), 100)}%` }}
+                    title={`${allocation.label}: ${allocation.ratio_percent.toFixed(2)}%`}
+                  />
+                ))}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                {allocations.map((allocation) => (
+                  <span key={allocation.payer_source} className="inline-flex items-center gap-1 text-[9px] font-semibold text-[#60798D]">
+                    <span className={`h-2 w-2 rounded-sm ${
+                      allocation.payer_source === "BPJS"
+                        ? "bg-[#0B3A5B]"
+                        : allocation.payer_source === "PRIVATE_INSURANCE"
+                          ? "bg-[#456D8B]"
+                          : "bg-[#E55B83]"
+                    }`} />
+                    {allocation.label} ({allocation.ratio_percent.toFixed(0)}%)
+                  </span>
+                ))}
+              </div>
+            </div>
+
             {allocations.map((allocation) => (
               <article
                 key={allocation.payer_source}
-                className="rounded-lg border border-[#E6ECF3] p-3.5"
+                className={`rounded-lg border border-[#E6ECF3] border-l-[3px] p-3.5 ${
+                  allocation.payer_source === "BPJS"
+                    ? "border-l-[#0B3A5B]"
+                    : allocation.payer_source === "PRIVATE_INSURANCE"
+                      ? "border-l-[#456D8B]"
+                      : "border-l-[#E55B83]"
+                }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
@@ -269,9 +367,18 @@ export function InvoicePanel({
               </select>
             </div>
             <div>
-              <label className={labelClass} htmlFor="payment-amount">
-                Nominal diterima (Rp)
-              </label>
+              <div className={`${labelClass} flex items-center justify-between gap-2`}>
+                <label htmlFor="payment-amount">Nominal diterima (Rp)</label>
+                {selectedAllocation && (
+                  <button
+                    type="button"
+                    onClick={() => setAmount(String(selectedAllocation.remaining_amount))}
+                    className="text-[9px] font-bold text-[#315D7A] hover:underline"
+                  >
+                    Bayar penuh sisa
+                  </button>
+                )}
+              </div>
               <input
                 id="payment-amount"
                 type="number"
@@ -394,30 +501,6 @@ export function InvoicePanel({
         )}
       </Panel>
 
-      <Panel title="Komponen tagihan invoice">
-        <div className="divide-y divide-[#EEF2F6]">
-          {invoice.bill_items.map((item, index) => (
-            <div
-              key={item.id ?? `${item.description}-${index}`}
-              className="flex flex-wrap justify-between gap-2 py-2.5 text-[10px]"
-            >
-              <span className="font-semibold text-[#45657A]">
-                {item.description}{" "}
-                <span className="font-normal text-[#8293A2]">
-                  × {item.quantity}
-                </span>
-              </span>
-              <span className="font-bold text-[#234B66]">
-                {formatRupiah(item.subtotal)}
-              </span>
-            </div>
-          ))}
-          <div className="flex justify-between pt-3 text-xs font-extrabold text-[#0B3A5B]">
-            <span>Total tagihan</span>
-            <span>{formatRupiah(invoice.summary.total_hospital_bill)}</span>
-          </div>
-        </div>
-      </Panel>
     </div>
   );
 }

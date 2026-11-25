@@ -8,7 +8,6 @@ import {
   Banknote,
   Bell,
   CheckCircle2,
-  ChevronsUpDown,
   FileText,
   HelpCircle,
   LayoutGrid,
@@ -85,28 +84,8 @@ function SidebarBody({
 
   return (
     <div className="flex h-full flex-col bg-white text-[#0B3A5B]">
-      {/* a. Switcher workspace */}
-      <div
-        className={cn(
-          "flex h-[50px] shrink-0 items-center justify-end px-[14px]",
-          !isPatientsRoute && "border-b border-[#E3EAF5]"
-        )}
-      >
-        <button
-          type="button"
-          className="inline-flex items-center gap-[5px] text-[15px] font-extrabold tracking-[-0.01em] text-[#0B3A5B] hover:opacity-80 cursor-pointer"
-        >
-          <span>Flow</span>
-          <ChevronsUpDown
-            className="h-[13px] w-[13px] text-[#5B6B7B]"
-            strokeWidth={2}
-          />
-        </button>
-      </div>
-
-      {/* b. Pill workspace */}
-      <div className={cn("px-[10px]", isPatientsRoute ? "pt-[4px]" : "pt-[12px]")}>
-        <div className="flex items-center justify-between gap-[6px] rounded-[8px] bg-[#EAF0FB] px-[10px] py-[7px]">
+      <div className="px-[12px] pt-[12px]">
+        <div className="flex items-center justify-between gap-[6px] rounded-[8px] bg-[#EAF0FB] px-[10px] py-[8px]">
           <div className="flex min-w-0 items-center gap-[6px]">
             <span
               className="h-[5px] w-[5px] shrink-0 rounded-full bg-[#0B3A5B]"
@@ -123,7 +102,6 @@ function SidebarBody({
         </div>
       </div>
 
-      {/* c. Menu navigasi */}
       {isPatientsRoute ? (
         <nav
           aria-label="Navigasi utama"
@@ -162,7 +140,7 @@ function SidebarBody({
       ) : (
         <nav
           aria-label="Navigasi utama"
-          className="mt-[12px] flex-1 space-y-[4px] overflow-y-auto px-[10px]"
+          className="mt-[12px] flex-1 space-y-[4px] overflow-y-auto px-[12px]"
         >
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
@@ -177,7 +155,7 @@ function SidebarBody({
                 href={item.href}
                 onClick={onNavigate}
                 className={cn(
-                  "flex h-[32px] items-center gap-[9px] rounded-[6px] px-[10px] text-[11.5px] transition-colors",
+                  "flex h-[34px] items-center gap-[9px] rounded-[6px] px-[10px] text-[11.5px] transition-colors",
                   isActive
                     ? "bg-[#154B6B] font-bold text-white"
                     : "font-medium text-[#5B6B7B] hover:bg-[#EAF0FB]/70 hover:text-[#0B3A5B]"
@@ -202,25 +180,7 @@ function SidebarBody({
         </nav>
       )}
 
-      {/* d. Item bawah: Pengaturan Akun & Bantuan */}
-      {isPatientsRoute ? (
-        <div className="mt-auto border-t border-[#E3EAF5] px-[18px] py-[12px] space-y-[10px]">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((prev) => !prev)}
-            className="block w-full text-left text-[11.5px] font-medium text-[#0B3A5B] transition-colors hover:text-[#154B6B] cursor-pointer"
-          >
-            Pengaturan Akun
-          </button>
-          <button
-            type="button"
-            className="block w-full text-left text-[11.5px] font-medium text-[#0B3A5B] transition-colors hover:text-[#154B6B] cursor-pointer"
-          >
-            Bantuan
-          </button>
-        </div>
-      ) : (
-        <div className="mt-auto space-y-[2px] px-[10px] pb-[10px] pt-[12px]">
+      <div className="mt-auto space-y-[2px] px-[12px] pb-[10px] pt-[12px]">
           <button
             type="button"
             onClick={() => setMenuOpen((prev) => !prev)}
@@ -242,8 +202,7 @@ function SidebarBody({
             />
             <span>Bantuan</span>
           </button>
-        </div>
-      )}
+      </div>
 
       {/* e. Garis pemisah tipis + Profil */}
       <div className="relative border-t border-[#E3EAF5] px-[12px] py-[11px]">
@@ -307,15 +266,15 @@ export function Sidebar({
 
   return (
     <>
-      {/* Desktop sidebar: on /patients/new and /patients/[id] it ends above the lower cards (bg-page visible beneath) */}
+      {/* Desktop fixed sidebar */}
       <aside
         className={cn(
-          "hidden lg:left-0 lg:top-0 lg:z-30 lg:block lg:border-r lg:border-[#E3EAF5] lg:bg-white",
+          "hidden lg:fixed lg:left-0 lg:top-[50px] lg:z-30 lg:block lg:border-r lg:border-[#E3EAF5] lg:bg-white",
           isPatientCreateRoute
-            ? "lg:absolute lg:h-[695px] lg:w-[198px] lg:border-b"
+            ? "lg:h-[650px] lg:w-[198px] lg:border-b"
             : isPatientProfileRoute
-              ? "lg:absolute lg:h-[700px] lg:w-[212px] lg:border-b"
-              : "lg:fixed lg:inset-y-0 lg:w-[212px]"
+              ? "lg:h-[700px] lg:w-[212px] lg:border-b"
+              : "lg:bottom-0 lg:w-[250px]"
         )}
       >
         <SidebarBody user={user} notificationCount={notificationCount} />

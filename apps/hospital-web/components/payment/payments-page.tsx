@@ -2,7 +2,17 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, Banknote, Search, Wallet } from "lucide-react";
+import {
+  ArrowRight,
+  Banknote,
+  Building2,
+  CircleCheck,
+  Info,
+  ReceiptText,
+  RefreshCw,
+  Search,
+  Wallet,
+} from "lucide-react";
 import { useWorkspace } from "@/components/layout";
 import { Button } from "@/components/ui";
 import {
@@ -39,6 +49,13 @@ export function PaymentsPage() {
   const [reconciliationRows, setReconciliationRows] = React.useState<
     BankReconciliationRow[]
   >([]);
+  const [reconciliationPreview, setReconciliationPreview] = React.useState<
+    BankReconciliationRow[]
+  >([]);
+  const [reconciliationPreviewError, setReconciliationPreviewError] =
+    React.useState("");
+  const [reconciliationPreviewLoading, setReconciliationPreviewLoading] =
+    React.useState(true);
   const [summary, setSummary] = React.useState<PaymentSummary | null>(null);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
@@ -100,15 +117,90 @@ export function PaymentsPage() {
     setPage(1);
   }, [payer, searchQuery, status, view]);
 
+  React.useEffect(() => {
+    if (!getAccessToken()) {
+      setReconciliationPreviewLoading(false);
+      setReconciliationPreviewError(
+        "Silakan masuk untuk melihat data rekonsiliasi."
+      );
+      return;
+    }
+    let active = true;
+    setReconciliationPreviewLoading(true);
+    getBankReconciliation({ page: 1, limit: 3 })
+      .then((response) => {
+        if (active) {
+          setReconciliationPreview(response.data);
+          setReconciliationPreviewError("");
+        }
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          setReconciliationPreviewError(
+            cause instanceof Error
+              ? cause.message
+              : "Ringkasan rekonsiliasi gagal dimuat."
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setReconciliationPreviewLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [reloadKey]);
+
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="space-y-5">
+      <div className="flex flex-col justify-between gap-3 rounded-xl border border-[#DCE8F7] bg-white px-4 py-3 shadow-[0_4px_18px_rgba(11,58,91,0.03)] sm:flex-row sm:items-center">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#EAF0FB] text-[#154B6B]">
+            <Building2 className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-extrabold text-[#234B66]">
+              Rekonsiliasi pembayaran
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-bold ${
+                reconciliationPreviewError
+                  ? "bg-rose-50 text-rose-700"
+                  : reconciliationPreviewLoading
+                    ? "bg-[#EAF0FB] text-[#315D7A]"
+                    : reconciliationPreview.length > 0
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-amber-50 text-amber-800"
+              }`}>
+                <CircleCheck className="h-3 w-3" />
+                {reconciliationPreviewError
+                  ? "Data gagal dimuat"
+                  : reconciliationPreviewLoading
+                    ? "Memuat status"
+                    : reconciliationPreview.length > 0
+                      ? "Transaksi tersedia"
+                      : "Belum ada transaksi"}
+              </span>
+            </div>
+            <p className="mt-0.5 text-[10px] text-[#71869A]">
+              Pantau transaksi tercatat dan referensi bank melalui layanan rekonsiliasi.
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
+          onClick={() => setView("reconciliation")}
+        >
+          Buka rekonsiliasi
+        </Button>
+      </div>
       <div>
         <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#668098]">
           Hospital Ops / Keuangan
         </div>
-        <h1 className="mt-1 text-[22px] font-extrabold tracking-tight text-[#0B3A5B]">
+        <h1 className="mt-1 text-[26px] font-extrabold tracking-tight text-[#0B3A5B]">
           Pembayaran & rekonsiliasi
         </h1>
         <p className="mt-1 text-xs text-[#5B6B7B]">
@@ -139,11 +231,12 @@ export function PaymentsPage() {
         />
       </div>
 
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(270px,0.75fr)]">
       <Panel
         title={view === "payments" ? "Daftar pembayaran per kasus" : "Rekonsiliasi bank"}
         description={
           view === "payments"
-            ? "Buka invoice untuk melihat alokasi dan mencatat transaksi."
+            ? "Buka kasus untuk meninjau invoice, alokasi, dan transaksi pembayaran."
             : "Daftar transaksi dan referensi bank untuk pencocokan."
         }
       >
@@ -354,6 +447,90 @@ export function PaymentsPage() {
           )}
         </div>
       </Panel>
+      <aside className="space-y-4">
+        <Panel
+          title="Penerimaan kasir & payer"
+          description="Ringkasan penerimaan pembayaran lintas kasus."
+          action={<ReceiptText className="h-4 w-4 text-[#65839A]" />}
+        >
+          <div className="rounded-lg bg-[#EAF0FB] p-3">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-[#71869A]">
+              Pembayaran diterima
+            </div>
+            <div className="mt-1 text-lg font-extrabold text-[#154B6B]">
+              {summary ? formatRupiah(summary.total_paid_received) : "—"}
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#D9E4F1] pt-2 text-[9px]">
+              <span className="text-[#71869A]">Menunggu transfer penjamin</span>
+              <span className="font-bold text-[#315D7A]">
+                {summary ? formatRupiah(summary.waiting_payer_transfers) : "—"}
+              </span>
+            </div>
+          </div>
+          <p className="mt-3 text-[10px] leading-4 text-[#71869A]">
+            Pencatatan transaksi dilakukan dari invoice masing-masing kasus agar saldo dan validasi overpayment tetap mengikuti backend.
+          </p>
+          {rows[0] && (
+            <Link
+              href={`/cases/${rows[0].case_id}`}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#0B3A5B] px-3 py-2.5 text-[10px] font-extrabold text-white hover:bg-[#154B6B]"
+            >
+              Buka kasus pembayaran
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
+        </Panel>
+
+        <Panel
+          title="Rekonsiliasi bank"
+          description="Transaksi terbaru dari layanan rekonsiliasi."
+          action={<RefreshCw className="h-4 w-4 text-[#65839A]" />}
+        >
+          {reconciliationPreviewError ? (
+            <div role="alert" className="flex items-start gap-2 rounded-lg bg-rose-50 p-3 text-[10px] leading-4 text-rose-800">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {reconciliationPreviewError}
+            </div>
+          ) : reconciliationPreview.length === 0 ? (
+            <div className="py-4 text-center text-[10px] text-[#71869A]">
+              Belum ada transaksi untuk ditampilkan.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {reconciliationPreview.map((row) => (
+                <div key={row.transaction_code} className="rounded-lg bg-[#F3F6FB] p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-[10px] font-extrabold text-[#315D7A]">{row.transaction_code}</div>
+                      <div className="mt-1 text-[9px] text-[#8293A2]">{row.case_number} · {formatDate(row.paid_at)}</div>
+                    </div>
+                    <StatusBadge status={row.verification_status} />
+                  </div>
+                  <div className="mt-2 text-right text-[11px] font-extrabold text-[#0B3A5B]">{formatRupiah(row.amount)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setView("reconciliation")}
+            className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#EAF0FB] px-3 py-2 text-[10px] font-bold text-[#315D7A] hover:bg-[#DFE9F8]"
+          >
+            Lihat semua rekonsiliasi
+            <ArrowRight className="h-3 w-3" />
+          </button>
+        </Panel>
+
+        <div className="rounded-xl border border-[#DCE8F7] bg-[#F0F5FF] p-4">
+          <div className="flex items-start gap-2">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#315D7A]" />
+            <p className="text-[10px] leading-4 text-[#49667B]">
+              Status pembayaran dan nilai disetujui berasal dari catatan kasus serta keputusan penjamin. Perubahan saldo akan terlihat setelah data dimuat ulang.
+            </p>
+          </div>
+        </div>
+      </aside>
+      </div>
     </div>
   );
 }
