@@ -61,6 +61,9 @@ function SidebarBody({
 
   const isPatientsRoute =
     pathname === "/patients" || pathname.startsWith("/patients/");
+  const isPatientCreateRoute = pathname === "/patients/new";
+  const isPatientProfileRoute =
+    pathname.startsWith("/patients/") && pathname !== "/patients/new";
 
   const displayName = user?.full_name || "Siti Rahmawati, S.Kep";
   const displayRole = user?.role_title
@@ -83,7 +86,12 @@ function SidebarBody({
   return (
     <div className="flex h-full flex-col bg-white text-[#0B3A5B]">
       {/* a. Switcher workspace */}
-      <div className="flex h-[50px] shrink-0 items-center justify-end border-b border-[#E3EAF5] px-[14px]">
+      <div
+        className={cn(
+          "flex h-[50px] shrink-0 items-center justify-end px-[14px]",
+          !isPatientsRoute && "border-b border-[#E3EAF5]"
+        )}
+      >
         <button
           type="button"
           className="inline-flex items-center gap-[5px] text-[15px] font-extrabold tracking-[-0.01em] text-[#0B3A5B] hover:opacity-80 cursor-pointer"
@@ -97,8 +105,8 @@ function SidebarBody({
       </div>
 
       {/* b. Pill workspace */}
-      <div className="px-[10px] pt-[12px]">
-        <div className="flex items-center justify-between gap-[6px] rounded-[8px] bg-[#EAF0FB] px-[10px] py-[8px]">
+      <div className={cn("px-[10px]", isPatientsRoute ? "pt-[4px]" : "pt-[12px]")}>
+        <div className="flex items-center justify-between gap-[6px] rounded-[8px] bg-[#EAF0FB] px-[10px] py-[7px]">
           <div className="flex min-w-0 items-center gap-[6px]">
             <span
               className="h-[5px] w-[5px] shrink-0 rounded-full bg-[#0B3A5B]"
@@ -123,7 +131,9 @@ function SidebarBody({
         >
           {NAV_ITEMS.map((item) => {
             const isActive =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
+              !isPatientCreateRoute &&
+              !isPatientProfileRoute &&
+              (pathname === item.href || pathname.startsWith(`${item.href}/`));
             const badgeValue =
               item.href === "/notifications" ? notificationCount : item.badge;
 
@@ -290,10 +300,24 @@ export function Sidebar({
   user,
   notificationCount,
 }: SidebarProps) {
+  const pathname = usePathname();
+  const isPatientCreateRoute = pathname === "/patients/new";
+  const isPatientProfileRoute =
+    pathname.startsWith("/patients/") && pathname !== "/patients/new";
+
   return (
     <>
-      {/* Desktop fixed sidebar */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:block lg:w-[212px] lg:border-r lg:border-[#E3EAF5] lg:bg-white">
+      {/* Desktop sidebar: on /patients/new and /patients/[id] it ends above the lower cards (bg-page visible beneath) */}
+      <aside
+        className={cn(
+          "hidden lg:left-0 lg:top-0 lg:z-30 lg:block lg:border-r lg:border-[#E3EAF5] lg:bg-white",
+          isPatientCreateRoute
+            ? "lg:absolute lg:h-[695px] lg:w-[198px] lg:border-b"
+            : isPatientProfileRoute
+              ? "lg:absolute lg:h-[700px] lg:w-[212px] lg:border-b"
+              : "lg:fixed lg:inset-y-0 lg:w-[212px]"
+        )}
+      >
         <SidebarBody user={user} notificationCount={notificationCount} />
       </aside>
 

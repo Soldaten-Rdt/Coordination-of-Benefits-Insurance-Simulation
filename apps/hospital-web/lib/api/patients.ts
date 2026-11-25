@@ -1,9 +1,15 @@
 import { apiClient } from "./client";
 import type { ApiListResponse, ApiSuccessResponse } from "@/types/api";
 import type {
+  CreatePatientRequest,
+  CreatePatientResponse,
+  PatientDetailResponse,
   PatientDirectoryItem,
   PatientListQuery,
   PatientSummaryResponse,
+  UpdatePatientCoveragesRequest,
+  UpdatePatientRequest,
+  VerifyBpjsResponse,
 } from "@/types/patient";
 
 export async function getPatientSummary(): Promise<
@@ -27,4 +33,48 @@ export async function getPatients(
       limit: params.limit ?? 5,
     },
   });
+}
+
+export async function verifyBpjsNumber(
+  bpjsNumber: string
+): Promise<ApiSuccessResponse<VerifyBpjsResponse>> {
+  return apiClient.post<ApiSuccessResponse<VerifyBpjsResponse>>(
+    "/api/patients/verify-bpjs",
+    { bpjs_number: bpjsNumber }
+  );
+}
+
+export async function createPatient(
+  payload: CreatePatientRequest
+): Promise<ApiSuccessResponse<CreatePatientResponse>> {
+  return apiClient.post<ApiSuccessResponse<CreatePatientResponse>>(
+    "/api/patients",
+    payload
+  );
+}
+
+export async function getPatientDetail(
+  id: string | number
+): Promise<ApiSuccessResponse<PatientDetailResponse>> {
+  return apiClient.get<ApiSuccessResponse<PatientDetailResponse>>(
+    `/api/patients/${id}`
+  );
+}
+
+export async function updatePatientProfile(
+  id: string | number,
+  payload: UpdatePatientRequest
+): Promise<ApiSuccessResponse<{ message?: string }> & { message?: string }> {
+  return apiClient.patch<
+    ApiSuccessResponse<{ message?: string }> & { message?: string }
+  >(`/api/patients/${id}`, payload);
+}
+
+export async function updatePatientCoverages(
+  id: string | number,
+  payload: UpdatePatientCoveragesRequest
+): Promise<ApiSuccessResponse<{ message?: string }> & { message?: string }> {
+  return apiClient.patch<
+    ApiSuccessResponse<{ message?: string }> & { message?: string }
+  >(`/api/patients/${id}/coverages`, payload);
 }

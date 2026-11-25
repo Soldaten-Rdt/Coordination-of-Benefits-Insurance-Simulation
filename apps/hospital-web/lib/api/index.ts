@@ -12,4 +12,12 @@ export {
   getDashboardActivities,
   getDashboardSummary,
 } from "./dashboard";
-export { getPatients, getPatientSummary } from "./patients";
+export {
+  createPatient,
+  getPatientDetail,
+  getPatients,
+  getPatientSummary,
+  updatePatientCoverages,
+  updatePatientProfile,
+  verifyBpjsNumber,
+} from "./patients";

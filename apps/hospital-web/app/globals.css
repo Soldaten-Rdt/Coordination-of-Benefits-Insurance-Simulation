@@ -16,6 +16,11 @@
   --blue-soft: #dce8f9;
   --blue-mid: #1f5f8b;
   --green-text: #1e9e6a;
+  --green-dark: #12805f;
+  --green-soft: #d6f2e4;
+  --green-dot: #1e9e6a;
+  --amber: #e8b96a;
+  --text-light: #9aa7b5;
   --orange-text: #d9731a;
   --shadow-card: 0 4px 18px rgba(11, 58, 91, 0.06);
 }
@@ -27,6 +32,7 @@
   --color-navy-900: #0b3a5b;
   --color-navy-700: #154b6b;
   --color-text-muted: #5b6b7b;
+  --color-text-light: #9aa7b5;
   --color-accent-red: #d0214f;
   --color-border-soft: #e3eaf5;
   --color-peach-bg: #ffe4c4;
@@ -35,6 +41,10 @@
   --color-blue-soft: #dce8f9;
   --color-blue-mid: #1f5f8b;
   --color-green-text: #1e9e6a;
+  --color-green-dark: #12805f;
+  --color-green-soft: #d6f2e4;
+  --color-green-dot: #1e9e6a;
+  --color-amber: #e8b96a;
   --color-orange-text: #d9731a;
 
   --font-sans: "Plus Jakarta Sans", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

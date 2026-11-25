@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bell, Menu, Plus, Search } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 import type { SimulationMode } from "@/types/api";
 
 export interface TopbarProps {
@@ -20,6 +22,10 @@ export function Topbar({
   simulationMode,
   notificationCount = 3,
 }: TopbarProps) {
+  const pathname = usePathname();
+  const isPatientProfileRoute =
+    pathname.startsWith("/patients/") && pathname !== "/patients/new";
+
   return (
     <header className="sticky top-0 z-20 flex h-[50px] shrink-0 items-center justify-between gap-3 border-b border-[#E3EAF5] bg-white px-[18px] sm:px-[22px]">
       {/* Kiri: Breadcrumb */}
@@ -55,7 +61,12 @@ export function Topbar({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Cari pasien, ID kasus, atau tagihan..."
-            className="h-[32px] w-full rounded-[8px] bg-[#EAF0FB] pl-[30px] pr-[12px] text-[11px] font-medium text-[#0B3A5B] placeholder:text-[#5B6B7B] focus:outline-none focus:ring-1 focus:ring-[#154B6B]/40"
+            className={cn(
+              "h-[32px] w-full rounded-[8px] pl-[30px] pr-[12px] text-[11px] font-medium text-[#0B3A5B] placeholder:text-[#5B6B7B] focus:outline-none focus:ring-1 focus:ring-[#154B6B]/40",
+              isPatientProfileRoute
+                ? "border border-[#E3EAF5] bg-white"
+                : "bg-[#EAF0FB]"
+            )}
           />
         </div>
       </div>
@@ -90,7 +101,7 @@ export function Topbar({
           className="inline-flex h-[32px] items-center gap-[5px] rounded-[8px] bg-[#154B6B] px-[12px] text-[11px] font-bold text-white transition-colors hover:bg-[#0B3A5B]"
         >
           <Plus className="h-[13px] w-[13px]" strokeWidth={2.4} />
-          <span>Buat Kasus</span>
+          <span>+ Buat Kasus</span>
         </Link>
       </div>
     </header>

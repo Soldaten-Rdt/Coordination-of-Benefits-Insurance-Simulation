@@ -362,7 +362,7 @@ export default function DashboardPage() {
           </div>
 
           <Link
-            href="/patients"
+            href="/patients/new"
             className="inline-flex h-[34px] items-center gap-[6px] rounded-[8px] bg-[#0B3A5B] px-[12px] text-[10.5px] font-bold text-white transition-colors hover:bg-[#154B6B]"
           >
             <UserPlus className="h-[13px] w-[13px]" strokeWidth={2} />

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   Activity,
   ArrowRight,
@@ -342,15 +343,6 @@ export default function PatientsDirectoryPage() {
     });
   };
 
-  const handlePendingFeature = (featureName: string) => {
-    toast({
-      variant: "info",
-      title: featureName,
-      description:
-        "Halaman ini akan ditambahkan pada tahap implementasi berikutnya.",
-    });
-  };
-
   return (
     <div className="space-y-[14px]">
       {/* 5) EMPAT KARTU STATISTIK */}
@@ -491,14 +483,13 @@ export default function PatientsDirectoryPage() {
             <span>Ekspor Data</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => handlePendingFeature("Registrasi Pasien Baru")}
-            className="inline-flex h-[32px] items-center gap-[6px] rounded-[6px] bg-[#0B3A5B] px-[16px] text-[11px] font-bold text-white transition-colors hover:bg-[#154B6B] cursor-pointer"
+          <Link
+            href="/patients/new"
+            className="inline-flex h-[32px] items-center gap-[6px] rounded-[6px] bg-[#0B3A5B] px-[16px] text-[11px] font-bold text-white transition-colors hover:bg-[#154B6B]"
           >
             <UserPlus className="h-[13px] w-[13px]" strokeWidth={2} />
             <span>+ Tambah Pasien</span>
-          </button>
+          </Link>
         </div>
       </section>
 
@@ -770,19 +761,16 @@ export default function PatientsDirectoryPage() {
 
                     {/* Aksi */}
                     <td className="py-[10px] pl-[6px] pr-[2px] text-right">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handlePendingFeature(`Profil ${row.fullName}`)
-                        }
-                        className="inline-flex h-[28px] items-center gap-[4px] rounded-[6px] bg-[#E3ECFA] px-[10px] text-[10px] font-bold text-[#0B3A5B] transition-colors hover:bg-[#D2E1F8] whitespace-nowrap cursor-pointer"
+                      <Link
+                        href={`/patients/${row.id}`}
+                        className="inline-flex h-[28px] items-center gap-[4px] rounded-[6px] bg-[#E3ECFA] px-[10px] text-[10px] font-bold text-[#0B3A5B] transition-colors hover:bg-[#D2E1F8] whitespace-nowrap"
                       >
                         <span>Buka Profil</span>
                         <ArrowRight
                           className="h-[11px] w-[11px]"
                           strokeWidth={2.2}
                         />
-                      </button>
+                      </Link>
                     </td>
                   </tr>
                 ))
