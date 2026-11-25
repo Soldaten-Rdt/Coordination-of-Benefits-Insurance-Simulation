@@ -5,8 +5,10 @@ import Link from "next/link";
 import { ArrowRight, Plus, Search } from "lucide-react";
 import { useWorkspace } from "@/components/layout";
 import { Button } from "@/components/ui";
+import { peekApiCache } from "@/lib/api";
 import { listCases } from "@/lib/api/cases";
 import { getAccessToken } from "@/lib/auth/token";
+import type { ApiListResponse } from "@/types/api";
 import type { CaseListItem } from "@/types/case";
 import {
   EmptyState,
@@ -28,15 +30,33 @@ const TABS = [
 
 export function CaseListPage({ claimsOnly = false }: { claimsOnly?: boolean }) {
   const { searchQuery } = useWorkspace();
-  const [tab, setTab] = React.useState(claimsOnly ? "IN_REVIEW" : "ALL");
+  const initialTab = claimsOnly ? "IN_REVIEW" : "ALL";
+  const pageSize = 10;
+  const initialCached = peekApiCache<ApiListResponse<CaseListItem>>(
+    "/api/cases",
+    {
+      page: 1,
+      limit: pageSize,
+      tab: initialTab,
+      status: "ALL",
+      q: searchQuery,
+    }
+  );
+
+  const [tab, setTab] = React.useState(initialTab);
   const [paymentStatus, setPaymentStatus] = React.useState("ALL");
   const [page, setPage] = React.useState(1);
-  const [rows, setRows] = React.useState<CaseListItem[]>([]);
-  const [total, setTotal] = React.useState(0);
-  const [loading, setLoading] = React.useState(true);
+  const [rows, setRows] = React.useState<CaseListItem[]>(
+    () => initialCached?.data ?? []
+  );
+  const [total, setTotal] = React.useState<number>(
+    () => initialCached?.meta?.total ?? 0
+  );
+  const [loading, setLoading] = React.useState(
+    () => Boolean(getAccessToken()) && !initialCached
+  );
   const [error, setError] = React.useState<string | null>(null);
   const [reloadKey, setReloadKey] = React.useState(0);
-  const pageSize = 10;
 
   React.useEffect(() => {
     if (!getAccessToken()) {
@@ -46,7 +66,20 @@ export function CaseListPage({ claimsOnly = false }: { claimsOnly?: boolean }) {
     }
 
     let active = true;
-    setLoading(true);
+    const cached = peekApiCache<ApiListResponse<CaseListItem>>("/api/cases", {
+      page,
+      limit: pageSize,
+      tab,
+      status: paymentStatus,
+      q: searchQuery,
+    });
+    if (cached) {
+      setRows(cached.data ?? []);
+      setTotal(cached.meta?.total ?? 0);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     const timer = window.setTimeout(() => {
       listCases({

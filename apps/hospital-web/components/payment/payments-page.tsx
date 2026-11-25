@@ -15,12 +15,14 @@ import {
 } from "lucide-react";
 import { useWorkspace } from "@/components/layout";
 import { Button } from "@/components/ui";
+import { peekApiCache } from "@/lib/api";
 import {
   getBankReconciliation,
   getPaymentSummary,
   listPayments,
 } from "@/lib/api/cases";
 import { getAccessToken } from "@/lib/auth/token";
+import type { ApiListResponse, ApiSuccessResponse } from "@/types/api";
 import type {
   BankReconciliationRow,
   PaymentCase,
@@ -41,27 +43,46 @@ type View = "payments" | "reconciliation";
 
 export function PaymentsPage() {
   const { searchQuery } = useWorkspace();
+  const pageSize = 10;
+  const cachedSummary = peekApiCache<ApiSuccessResponse<PaymentSummary>>(
+    "/api/payments/summary"
+  );
+  const cachedPayments = peekApiCache<ApiListResponse<PaymentCase>>(
+    "/api/payments",
+    { page: 1, limit: pageSize, status: "ALL", payer: "ALL", q: searchQuery }
+  );
+  const cachedReconPreview = peekApiCache<
+    ApiListResponse<BankReconciliationRow>
+  >("/api/payments/bank-reconciliation", { page: 1, limit: 3 });
+
   const [view, setView] = React.useState<View>("payments");
   const [status, setStatus] = React.useState("ALL");
   const [payer, setPayer] = React.useState("ALL");
   const [page, setPage] = React.useState(1);
-  const [rows, setRows] = React.useState<PaymentCase[]>([]);
+  const [rows, setRows] = React.useState<PaymentCase[]>(
+    () => cachedPayments?.data ?? []
+  );
   const [reconciliationRows, setReconciliationRows] = React.useState<
     BankReconciliationRow[]
   >([]);
   const [reconciliationPreview, setReconciliationPreview] = React.useState<
     BankReconciliationRow[]
-  >([]);
+  >(() => cachedReconPreview?.data ?? []);
   const [reconciliationPreviewError, setReconciliationPreviewError] =
     React.useState("");
   const [reconciliationPreviewLoading, setReconciliationPreviewLoading] =
-    React.useState(true);
-  const [summary, setSummary] = React.useState<PaymentSummary | null>(null);
-  const [total, setTotal] = React.useState(0);
-  const [loading, setLoading] = React.useState(true);
+    React.useState(() => Boolean(getAccessToken()) && !cachedReconPreview);
+  const [summary, setSummary] = React.useState<PaymentSummary | null>(
+    () => cachedSummary?.data ?? null
+  );
+  const [total, setTotal] = React.useState(
+    () => cachedPayments?.meta?.total ?? 0
+  );
+  const [loading, setLoading] = React.useState(
+    () => Boolean(getAccessToken()) && !cachedPayments
+  );
   const [error, setError] = React.useState("");
   const [reloadKey, setReloadKey] = React.useState(0);
-  const pageSize = 10;
 
   React.useEffect(() => {
     if (!getAccessToken()) {
@@ -70,7 +91,26 @@ export function PaymentsPage() {
       return;
     }
     let active = true;
-    setLoading(true);
+    const hasCachedView =
+      view === "payments"
+        ? Boolean(
+            peekApiCache("/api/payments", {
+              page,
+              limit: pageSize,
+              status,
+              payer,
+              q: searchQuery,
+            })
+          )
+        : Boolean(
+            peekApiCache("/api/payments/bank-reconciliation", {
+              page,
+              limit: pageSize,
+            })
+          );
+    if (!hasCachedView) {
+      setLoading(true);
+    }
     setError("");
     const fetchData = async () => {
       try {
@@ -126,7 +166,9 @@ export function PaymentsPage() {
       return;
     }
     let active = true;
-    setReconciliationPreviewLoading(true);
+    if (!peekApiCache("/api/payments/bank-reconciliation", { page: 1, limit: 3 })) {
+      setReconciliationPreviewLoading(true);
+    }
     getBankReconciliation({ page: 1, limit: 3 })
       .then((response) => {
         if (active) {

@@ -4,21 +4,41 @@ import * as React from "react";
 import { Printer } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui";
+import { peekApiCache } from "@/lib/api";
 import { getCase, listCases } from "@/lib/api/cases";
 import { getAccessToken } from "@/lib/auth/token";
 import { useWorkspace } from "@/components/layout";
+import type { ApiListResponse, ApiSuccessResponse } from "@/types/api";
 import type { CaseDetail, CaseListItem } from "@/types/case";
 import { SplitBillPanel } from "./case/split-bill-panel";
 import { EmptyState, ErrorState, LoadingState } from "./case/case-ui";
 
 export function ClaimCoordinationPage() {
   const { searchQuery } = useWorkspace();
-  const [cases, setCases] = React.useState<CaseListItem[]>([]);
-  const [selectedCaseId, setSelectedCaseId] = React.useState<number | null>(
-    null
+  const initialCasesCache = peekApiCache<ApiListResponse<CaseListItem>>(
+    "/api/cases",
+    { page: 1, limit: 50, tab: "ALL", q: searchQuery }
   );
-  const [caseData, setCaseData] = React.useState<CaseDetail | null>(null);
-  const [loadingCases, setLoadingCases] = React.useState(true);
+  const initialFirstId = initialCasesCache?.data?.[0]?.id ?? null;
+  const initialDetailCache =
+    initialFirstId !== null
+      ? peekApiCache<ApiSuccessResponse<CaseDetail>>(
+          `/api/cases/${initialFirstId}`
+        )
+      : undefined;
+
+  const [cases, setCases] = React.useState<CaseListItem[]>(
+    () => initialCasesCache?.data ?? []
+  );
+  const [selectedCaseId, setSelectedCaseId] = React.useState<number | null>(
+    initialFirstId
+  );
+  const [caseData, setCaseData] = React.useState<CaseDetail | null>(
+    () => initialDetailCache?.data ?? null
+  );
+  const [loadingCases, setLoadingCases] = React.useState(
+    () => Boolean(getAccessToken()) && !initialCasesCache
+  );
   const [loadingCase, setLoadingCase] = React.useState(false);
   const [casesError, setCasesError] = React.useState("");
   const [caseError, setCaseError] = React.useState("");
@@ -32,7 +52,24 @@ export function ClaimCoordinationPage() {
     }
 
     let active = true;
-    setLoadingCases(true);
+    const cached = peekApiCache<ApiListResponse<CaseListItem>>("/api/cases", {
+      page: 1,
+      limit: 50,
+      tab: "ALL",
+      q: searchQuery,
+    });
+    if (cached) {
+      const availableCases = cached.data ?? [];
+      setCases(availableCases);
+      setSelectedCaseId((current) =>
+        current && availableCases.some((item) => item.id === current)
+          ? current
+          : (availableCases[0]?.id ?? null)
+      );
+      setLoadingCases(false);
+    } else {
+      setLoadingCases(true);
+    }
     setCasesError("");
     listCases({ page: 1, limit: 50, tab: "ALL", q: searchQuery })
       .then((response) => {
@@ -76,8 +113,16 @@ export function ClaimCoordinationPage() {
     if (!getAccessToken()) return;
 
     let active = true;
-    setCaseData(null);
-    setLoadingCase(true);
+    const cachedDetail = peekApiCache<ApiSuccessResponse<CaseDetail>>(
+      `/api/cases/${selectedCaseId}`
+    );
+    if (cachedDetail?.data) {
+      setCaseData(cachedDetail.data);
+      setLoadingCase(false);
+    } else {
+      setCaseData(null);
+      setLoadingCase(true);
+    }
     setCaseError("");
     getCase(selectedCaseId)
       .then((response) => {

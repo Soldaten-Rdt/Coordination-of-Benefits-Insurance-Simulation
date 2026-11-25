@@ -4,8 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { Bell, Check, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui";
+import { peekApiCache } from "@/lib/api";
 import { listNotifications, markNotificationRead } from "@/lib/api/cases";
 import { getAccessToken } from "@/lib/auth/token";
+import type { ApiSuccessResponse } from "@/types/api";
 import type { NotificationItem } from "@/lib/api/cases";
 import {
   EmptyState,
@@ -17,9 +19,22 @@ import {
 } from "./case-ui";
 
 export function NotificationsPage() {
-  const [items, setItems] = React.useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = React.useState(0);
-  const [loading, setLoading] = React.useState(true);
+  const initialCached = peekApiCache<
+    ApiSuccessResponse<{
+      unread_count: number;
+      notifications: NotificationItem[];
+    }>
+  >("/api/notifications");
+
+  const [items, setItems] = React.useState<NotificationItem[]>(
+    () => initialCached?.data?.notifications ?? []
+  );
+  const [unreadCount, setUnreadCount] = React.useState(
+    () => initialCached?.data?.unread_count ?? 0
+  );
+  const [loading, setLoading] = React.useState(
+    () => Boolean(getAccessToken()) && !initialCached
+  );
   const [error, setError] = React.useState("");
   const [markingId, setMarkingId] = React.useState<number | null>(null);
   const [unreadOnly, setUnreadOnly] = React.useState(false);
@@ -30,7 +45,24 @@ export function NotificationsPage() {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    const cached = peekApiCache<
+      ApiSuccessResponse<{
+        unread_count: number;
+        notifications: NotificationItem[];
+      }>
+    >("/api/notifications");
+    if (cached?.data) {
+      const notifications = cached.data.notifications ?? [];
+      setUnreadCount(cached.data.unread_count);
+      setItems(
+        unreadOnly
+          ? notifications.filter((notification) => !notification.is_read)
+          : notifications
+      );
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setError("");
     try {
       const response = await listNotifications();

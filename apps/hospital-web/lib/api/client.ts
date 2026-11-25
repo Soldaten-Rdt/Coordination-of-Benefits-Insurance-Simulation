@@ -43,7 +43,12 @@ export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   skipAuth?: boolean;
 }
 
-function buildUrl(
+// Lightweight in-memory Stale-While-Revalidate cache & in-flight deduplication for GET requests
+const getResponseCache = new Map<string, { data: unknown; timestamp: number }>();
+const inflightGetRequests = new Map<string, Promise<unknown>>();
+let backendOfflineUntil = 0;
+
+export function buildApiUrl(
   path: string,
   query?: Record<string, string | number | boolean | undefined | null>
 ): string {
@@ -51,7 +56,9 @@ function buildUrl(
   const url = new URL(`${API_BASE_URL}${normalizedPath}`);
 
   if (query) {
-    for (const [key, value] of Object.entries(query)) {
+    const sortedKeys = Object.keys(query).sort();
+    for (const key of sortedKeys) {
+      const value = query[key];
       if (value !== undefined && value !== null && value !== "") {
         url.searchParams.set(key, String(value));
       }
@@ -61,57 +68,124 @@ function buildUrl(
   return url.toString();
 }
 
+export function peekApiCache<T>(
+  path: string,
+  query?: Record<string, string | number | boolean | undefined | null>
+): T | undefined {
+  const key = buildApiUrl(path, query);
+  const entry = getResponseCache.get(key);
+  return entry ? (entry.data as T) : undefined;
+}
+
+export function clearApiCache(): void {
+  getResponseCache.clear();
+  backendOfflineUntil = 0;
+}
+
 export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {}
 ): Promise<T> {
-  const { body, query, skipAuth = false, headers: customHeaders, ...rest } = options;
+  const {
+    body,
+    query,
+    skipAuth = false,
+    headers: customHeaders,
+    ...rest
+  } = options;
+  const method = (rest.method || "GET").toUpperCase();
+  const fullUrl = buildApiUrl(path, query);
 
-  const headers = new Headers(customHeaders);
-  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
-
-  if (!isFormData && body !== undefined && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  if (!skipAuth) {
-    const token = getAccessToken();
-    if (token && !headers.has("Authorization")) {
-      headers.set("Authorization", `Bearer ${token}`);
+  if (method !== "GET") {
+    // Any mutation resets offline circuit breaker and invalidates cached GET views
+    backendOfflineUntil = 0;
+  } else {
+    if (Date.now() < backendOfflineUntil) {
+      throw new Error(
+        "Tidak dapat terhubung ke Hospital Service (:8081). Pastikan backend aktif."
+      );
+    }
+    const existing = inflightGetRequests.get(fullUrl);
+    if (existing) {
+      return existing as Promise<T>;
     }
   }
 
-  const response = await fetch(buildUrl(path, query), {
-    ...rest,
-    headers,
-    body:
-      body === undefined
-        ? undefined
-        : isFormData
-          ? (body as FormData)
-          : JSON.stringify(body),
-  });
+  const execute = async (): Promise<T> => {
+    const headers = new Headers(customHeaders);
+    const isFormData =
+      typeof FormData !== "undefined" && body instanceof FormData;
 
-  const contentType = response.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json");
-  const payload = isJson ? await response.json().catch(() => null) : null;
-
-  if (!response.ok) {
-    if (response.status === 401 && !skipAuth) {
-      clearAccessToken();
+    if (!isFormData && body !== undefined && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
     }
 
-    const errorBody = payload as ApiErrorResponse | null;
-    const message =
-      errorBody?.error?.message ||
-      `Permintaan gagal dengan status ${response.status}`;
-    const code = errorBody?.error?.code || `HTTP_${response.status}`;
-    const details = errorBody?.error?.details ?? [];
+    if (!skipAuth) {
+      const token = getAccessToken();
+      if (token && !headers.has("Authorization")) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+    }
 
-    throw new ApiClientError(message, response.status, code, details);
+    let response: Response;
+    try {
+      response = await fetch(fullUrl, {
+        ...rest,
+        headers,
+        body:
+          body === undefined
+            ? undefined
+            : isFormData
+              ? (body as FormData)
+              : JSON.stringify(body),
+      });
+      backendOfflineUntil = 0;
+    } catch (networkErr) {
+      if (method === "GET") {
+        // Avoid multi-second TCP retry stalls across consecutive menu clicks when backend is offline
+        backendOfflineUntil = Date.now() + 5000;
+      }
+      throw networkErr;
+    }
+
+    const contentType = response.headers.get("content-type") ?? "";
+    const isJson = contentType.includes("application/json");
+    const payload = isJson ? await response.json().catch(() => null) : null;
+
+    if (!response.ok) {
+      if (response.status === 401 && !skipAuth) {
+        clearAccessToken();
+        getResponseCache.clear();
+      }
+
+      const errorBody = payload as ApiErrorResponse | null;
+      const message =
+        errorBody?.error?.message ||
+        `Permintaan gagal dengan status ${response.status}`;
+      const code = errorBody?.error?.code || `HTTP_${response.status}`;
+      const details = errorBody?.error?.details ?? [];
+
+      throw new ApiClientError(message, response.status, code, details);
+    }
+
+    if (method === "GET") {
+      getResponseCache.set(fullUrl, { data: payload, timestamp: Date.now() });
+    } else {
+      getResponseCache.clear();
+    }
+
+    return payload as T;
+  };
+
+  if (method === "GET") {
+    const promise = execute().finally(() => {
+      inflightGetRequests.delete(fullUrl);
+    });
+    inflightGetRequests.set(fullUrl, promise);
+    return promise;
   }
 
-  return payload as T;
+  return execute();
 }
 
 export const apiClient = {

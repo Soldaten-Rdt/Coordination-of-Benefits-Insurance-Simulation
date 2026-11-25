@@ -1,31 +1,68 @@
 "use client";
 
 import * as React from "react";
-import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { getCurrentUser, getSystemConfig } from "@/lib/api";
+import {
+  getBankReconciliation,
+  getCase,
+  getPaymentSummary,
+  listCases,
+  listNotifications,
+  listPayments,
+} from "@/lib/api/cases";
 import {
   getAccessToken,
   getStoredSimulationMode,
   getStoredUser,
   setStoredSession,
 } from "@/lib/auth/token";
-import { cn } from "@/lib/utils/cn";
 import type { SimulationMode } from "@/types/api";
 import type { AuthUser } from "@/types/auth";
-import { Sidebar } from "./sidebar";
+import { Sidebar, SIDEBAR_NAV_ITEMS } from "./sidebar";
 import { Topbar } from "./topbar";
 import { WorkspaceContext } from "./workspace-context";
 
+const EXTRA_PREFETCH_ROUTES = ["/patients/new", "/cases/new"];
+let devRoutesWarmed = false;
+
 export function HospitalShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const isPatientCreateRoute = pathname === "/patients/new";
-  const isPatientProfileRoute =
-    pathname.startsWith("/patients/") && pathname !== "/patients/new";
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [simulationMode, setSimulationMode] =
     React.useState<SimulationMode>("COB");
   const [user, setUser] = React.useState<AuthUser | null>(null);
+
+  // Eagerly prefetch all workspace routes (and warm Next.js dev compiler once) so menu transitions happen instantaneously
+  React.useEffect(() => {
+    const allRoutes = [
+      ...SIDEBAR_NAV_ITEMS.map((item) => item.href),
+      ...EXTRA_PREFETCH_ROUTES,
+    ];
+
+    const timer = window.setTimeout(() => {
+      for (const route of allRoutes) {
+        router.prefetch(route);
+      }
+
+      if (process.env.NODE_ENV === "development" && !devRoutesWarmed) {
+        devRoutesWarmed = true;
+        void (async () => {
+          for (const route of allRoutes) {
+            if (route === window.location.pathname) continue;
+            try {
+              await fetch(route, { credentials: "same-origin" });
+            } catch {
+              // Ignore background warmup errors
+            }
+          }
+        })();
+      }
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [router]);
 
   React.useEffect(() => {
     setUser(getStoredUser());
@@ -44,6 +81,29 @@ export function HospitalShell({ children }: { children: React.ReactNode }) {
         if (meRes.status === "fulfilled" && meRes.value.data) {
           nextUser = meRes.value.data;
           setUser(nextUser);
+
+          // Warm GET cache for sibling menu pages in the background once backend is confirmed reachable
+          void Promise.allSettled([
+            listCases({ page: 1, limit: 10, tab: "ALL", status: "ALL", q: "" }),
+            listCases({ page: 1, limit: 50, tab: "ALL", q: "" }).then(
+              (casesRes) => {
+                const firstId = casesRes.data?.[0]?.id;
+                if (firstId) {
+                  void getCase(firstId).catch(() => undefined);
+                }
+              }
+            ),
+            getPaymentSummary(),
+            listPayments({
+              page: 1,
+              limit: 10,
+              status: "ALL",
+              payer: "ALL",
+              q: "",
+            }),
+            getBankReconciliation({ page: 1, limit: 3 }),
+            listNotifications(),
+          ]);
         }
         if (
           cfgRes.status === "fulfilled" &&
@@ -76,14 +136,6 @@ export function HospitalShell({ children }: { children: React.ReactNode }) {
       }}
     >
       <div className="min-h-screen bg-[#F6F8FE] text-[#0B3A5B]">
-        <Topbar
-          onOpenMobileMenu={() => setMobileOpen(true)}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          simulationMode={simulationMode}
-          notificationCount={3}
-        />
-
         <Sidebar
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
@@ -91,33 +143,17 @@ export function HospitalShell({ children }: { children: React.ReactNode }) {
           notificationCount={3}
         />
 
-        <div
-          className={cn(
-            "min-h-[calc(100vh-50px)]",
-            isPatientCreateRoute ? "lg:pl-[198px]" : isPatientProfileRoute ? "lg:pl-[212px]" : "lg:pl-[250px]"
-          )}
-        >
-          <main
-            className={cn(
-              isPatientCreateRoute
-                ? "px-[18px] py-[18px] sm:px-[20px]"
-                : isPatientProfileRoute
-                  ? "px-[18px] pb-[24px] pt-[12px] sm:px-[22px]"
-                  : "px-[18px] py-[20px] sm:px-[24px]"
-            )}
-          >
-            <div
-              className={cn(
-                "mx-auto w-full",
-                isPatientCreateRoute
-                  ? "max-w-[1040px]"
-                  : isPatientProfileRoute
-                    ? "max-w-[900px]"
-                    : "max-w-[1140px]"
-              )}
-            >
-              {children}
-            </div>
+        <div className="flex min-h-screen flex-col lg:pl-[212px]">
+          <Topbar
+            onOpenMobileMenu={() => setMobileOpen(true)}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            simulationMode={simulationMode}
+            notificationCount={3}
+          />
+
+          <main className="flex-1 px-[18px] py-[20px] sm:px-[24px]">
+            <div className="mx-auto w-full max-w-[1140px]">{children}</div>
           </main>
         </div>
       </div>

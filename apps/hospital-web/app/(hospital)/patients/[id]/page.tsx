@@ -649,7 +649,7 @@ export default function PatientProfilePage() {
   };
 
   return (
-    <div className="space-y-[16px]">
+    <div className="mx-auto w-full max-w-[900px] space-y-[16px]">
       {/* 5) BARIS BREADCRUMB HALAMAN */}
       <div className="flex flex-wrap items-center justify-between gap-2 pt-[2px]">
         <nav
